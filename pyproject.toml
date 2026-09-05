@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-ai-brain"
+version = "0.1.0"
+description = "Local-first persistent memory exposed through MCP stdio"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.0,<2"]
+
+[project.scripts]
+brain-mcp = "brain.mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
