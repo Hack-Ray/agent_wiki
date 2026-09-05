@@ -244,3 +244,36 @@ Reliable Retrieve / Remember Loop
 ```
 
 not maximum feature count.
+
+# Git Workflow
+
+Before making changes:
+
+- Run `git status`.
+- Understand existing uncommitted changes.
+- Do not overwrite or revert user changes unrelated to the current task.
+
+During development:
+
+- Keep changes scoped to the current milestone.
+- Do not mix unrelated refactoring with feature work.
+- Use `git diff` to review changes before completion.
+
+After implementation:
+
+- Run relevant tests.
+- Run `git status`.
+- Review the final `git diff`.
+- Report all modified, added, and deleted files.
+- Suggest an appropriate commit message.
+
+Do not run the following unless the user explicitly requests it:
+
+- `git commit`
+- `git push`
+- `git reset --hard`
+- `git clean`
+- force push
+- history rewriting
+
+Never discard existing user changes without explicit approval.
