@@ -230,6 +230,7 @@ class MemoryLifecycleIntegrationTests(unittest.TestCase):
             self.assertNotIn("deprecated_at", columns)
             self.assertNotIn("verification_basis", columns)
             self.assertNotIn("verification_evidence", columns)
+            self.assertNotIn("source_refs", columns)
 
 
 if __name__ == "__main__":

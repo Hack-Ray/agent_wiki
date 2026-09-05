@@ -48,10 +48,38 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             "content": "This complete content crossed the MCP stdio boundary.",
                             "scope": "projects/ai-brain",
                             "tags": ["mcp", "stdio"],
+                            "source_refs": [
+                                {
+                                    "type": "log_or_source_path",
+                                    "value": "sources/logs/mcp-test.log",
+                                }
+                            ],
                         },
                     )
                     self.assertFalse(remembered.isError)
                     memory_id = remembered.structuredContent["id"]
+                    self.assertEqual(
+                        [
+                            {
+                                "type": "log_or_source_path",
+                                "value": "sources/logs/mcp-test.log",
+                            }
+                        ],
+                        remembered.structuredContent["source_refs"],
+                    )
+
+                    replacement_refs = [
+                        {"type": "url", "value": "https://example.com/mcp-evidence"}
+                    ]
+                    provenance_update = await session.call_tool(
+                        "brain_update",
+                        {"id": memory_id, "source_refs": replacement_refs},
+                    )
+                    self.assertFalse(provenance_update.isError)
+                    self.assertEqual(
+                        replacement_refs,
+                        provenance_update.structuredContent["source_refs"],
+                    )
 
                     updated = await session.call_tool(
                         "brain_update",
@@ -92,6 +120,12 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(
                         "This complete content crossed the MCP stdio boundary.",
                         read.structuredContent["content"],
+                    )
+                    self.assertEqual(
+                        replacement_refs, read.structuredContent["source_refs"]
+                    )
+                    self.assertEqual(
+                        "evidence", read.structuredContent["verification_basis"]
                     )
 
                     knowledge = await session.call_tool(

@@ -113,6 +113,16 @@ index 可隨時由下列 MCP tool 重建：
 brain_rebuild_index()
 ```
 
+Memory 可透過 `brain_remember` 保存 optional `source_refs`，並由 `brain_read` 完整取回或由
+`brain_update` 整份替換。每筆 reference 使用下列最小 structured format：
+
+```json
+{"type": "url", "value": "https://example.com/evidence"}
+```
+
+支援的 type 為 `local_file_path`、`url` 與 `log_or_source_path`；未提供時為空 list。
+`source_refs` 只是 provenance locator，不授權 Brain fetch URL 或讀取該 path。
+
 Codex MCP 設定方式亦可參考
 [OpenAI Model Context Protocol documentation](https://learn.chatgpt.com/zh-Hant/docs/extend/mcp)。
 
@@ -135,6 +145,7 @@ Tests 包含：
 - UTF-8 Knowledge 建立、完整替換及跨 connection persistence
 - Unified Memory/Knowledge search、canonical suppression、filtering、priority 與 final limit
 - Knowledge index clear/rebuild 與 transactional failure safety
+- Memory `source_refs` validation、migration、lifecycle preservation 與 reconnect round-trip
 - MCP client 實際啟動 stdio server，呼叫 Knowledge search/read/rebuild flow
 
 Milestone 2 的人工跨 Session 驗證結果記錄於

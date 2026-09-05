@@ -224,6 +224,7 @@ class KnowledgeMigrationTests(unittest.TestCase):
             self.assertEqual("verified", memory.status)
             self.assertEqual("Existing evidence", memory.verification_evidence)
             self.assertIsNone(memory.knowledge_path)
+            self.assertEqual([], memory.source_refs)
             repository.close()
 
 

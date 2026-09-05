@@ -14,6 +14,7 @@ class Memory:
     status: str
     scope: str
     tags: list[str]
+    source_refs: list[dict[str, str]]
     importance: int | None
     confidence: float | None
     created_at: str

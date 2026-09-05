@@ -38,6 +38,7 @@ class BrainService:
         self, title: str, content: str, summary: str | None = None,
         type: str = "learning", scope: str = "misc", tags: list[str] | None = None,
         importance: int | None = None, confidence: float | None = None,
+        source_refs: list[dict[str, str]] | None = None,
     ) -> Memory:
         title = self._required_text(title, "title")
         content = self._required_text(content, "content")
@@ -45,6 +46,9 @@ class BrainService:
         memory_type = self._required_text(type, "type")
         memory_scope = self._required_text(scope, "scope")
         normalized_tags = self._normalize_tags(tags or [])
+        normalized_source_refs = self._normalize_source_refs(
+            source_refs if source_refs is not None else []
+        )
         if importance is not None and not 1 <= importance <= 5:
             raise ValueError("importance must be between 1 and 5")
         if confidence is not None and not 0 <= confidence <= 1:
@@ -53,6 +57,7 @@ class BrainService:
         return self._repository.create(
             title=title, summary=summary, content=content, memory_type=memory_type,
             status="candidate", scope=memory_scope, tags=normalized_tags,
+            source_refs=normalized_source_refs,
             importance=importance, confidence=confidence, timestamp=timestamp,
         )
 
@@ -222,6 +227,7 @@ class BrainService:
         status: str | None = None,
         verification_basis: str | None = None,
         verification_evidence: str | None = None,
+        source_refs: list[dict[str, str]] | None = None,
     ) -> Memory:
         memory_id = self._parse_memory_id(identifier)
         current = self._repository.get(memory_id)
@@ -263,6 +269,8 @@ class BrainService:
                 changes[name] = self._required_text(value, name)
         if tags is not None:
             changes["tags"] = self._normalize_tags(tags)
+        if source_refs is not None:
+            changes["source_refs"] = self._normalize_source_refs(source_refs)
         if importance is not None:
             if not 1 <= importance <= 5:
                 raise ValueError("importance must be between 1 and 5")
@@ -395,3 +403,28 @@ class BrainService:
         if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
             raise ValueError("tags must be a list of strings")
         return list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
+
+    @staticmethod
+    def _normalize_source_refs(
+        source_refs: list[dict[str, str]],
+    ) -> list[dict[str, str]]:
+        if not isinstance(source_refs, list):
+            raise ValueError("source_refs must be a list of structured objects")
+        allowed_types = {"local_file_path", "url", "log_or_source_path"}
+        normalized: list[dict[str, str]] = []
+        for reference in source_refs:
+            if not isinstance(reference, dict):
+                raise ValueError("each source_ref must be a structured object")
+            if set(reference) != {"type", "value"}:
+                raise ValueError("each source_ref must contain only type and value")
+            reference_type = reference["type"]
+            value = reference["value"]
+            if not isinstance(reference_type, str) or reference_type not in allowed_types:
+                raise ValueError(
+                    "source_ref type must be local_file_path, url, or "
+                    "log_or_source_path"
+                )
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError("source_ref value must be a non-empty string")
+            normalized.append({"type": reference_type, "value": value})
+        return normalized

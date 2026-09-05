@@ -552,6 +552,10 @@ source_refs
 knowledge_path
 
 created_at
+updated_at
+verified_at
+deprecated_at
+```
 
 `source_refs` 必須定義為可追溯的 structured reference，不可只是任意文字。每一筆 Reference 至少必須包含可辨識的來源類型與定位值，V1 至少支援：
 
@@ -576,11 +580,28 @@ value = sources/logs/deadlock.log
 
 系統必須能依 structured reference 定位回原始 Evidence；無法解析或無法識別類型的任意文字不得視為有效 `source_refs`。
 
+V1 的最小 reference schema：
 
-updated_at
-verified_at
-deprecated_at
+```json
+{
+  "type": "local_file_path | url | log_or_source_path",
+  "value": "non-empty string"
+}
 ```
+
+`source_refs` 是 optional structured list。未提供或既有 Memory migration 後使用空 list：
+
+```text
+source_refs = []
+```
+
+Pre-M6 contract 中每個 reference object 只接受 `type` 與 `value` 兩個欄位；額外 provenance 欄位留待未來有實際需求時再擴充。
+
+Service 負責 business validation；Repository 只負責 JSON serialization / deserialization。`brain_update` 對 `source_refs` 採 deterministic full replacement，不提供 patch/add/remove language。
+
+`source_refs` 只代表 provenance locator，不代表 filesystem read authority。保存 `local_file_path` 不授權 Brain 讀取 `sources/` 以外的 filesystem；不得因保存 reference 而 fetch URL、讀取 local file 或檢查 locator 目前是否存在。
+
+`verification_basis`、`verification_evidence` 與 `source_refs` 是獨立概念。不得建立 FK 或 provenance graph、不得要求所有 verified Memory 必須有 source reference，也不得因 reference 存在或 `verification_basis = evidence` 就自動信任 Source 或改變 lifecycle。
 
 ---
 
@@ -867,6 +888,8 @@ knowledge:database/sql-server/deadlock.md
 
 `memory:` 只能解析 Memory record；`knowledge:` 只能解析 `knowledge/` 內的 Knowledge。不得接受無法判定類型的裸 ID，也不得在查找失敗時跨類型猜測或 fallback。搜尋結果回傳的 ID 必須採相同格式。
 
+`brain_read(memory:<id>)` 必須完整回傳該 Memory 的 `source_refs`；從 `brain_remember` 保存、經 `brain_update` replacement、SQLite reconnect、lifecycle transition 與 `brain_compile` 後都必須能 round-trip。
+
 ---
 
 ## brain_remember
@@ -880,7 +903,8 @@ brain_remember(
     scope?,
     tags?,
     importance?,
-    confidence?
+    confidence?,
+    source_refs?
 )
 ```
 
@@ -899,13 +923,16 @@ status = candidate
 ```text
 brain_update(
     id,
-    ...
+    ...,
+    source_refs?
 )
 ```
 
 用途：
 
 更新 Memory。
+
+`source_refs` 若提供，代表完整 replacement；空 list 會清除既有 references。未提供時保持原值。
 
 例如：
 
@@ -953,7 +980,7 @@ Memory.status = compiled
 Memory.knowledge_path = <target relative path>
 ```
 
-Memory 不刪除，且 `verified_at`、`verification_basis`、`verification_evidence` 必須完整保留。`compiled` 表示該 verified Memory 已整合進 canonical Markdown Knowledge，不代表 SQLite 成為 Knowledge source of truth。
+Memory 不刪除，且 `source_refs`、`verified_at`、`verification_basis`、`verification_evidence` 必須完整保留。`compiled` 表示該 verified Memory 已整合進 canonical Markdown Knowledge，不代表 SQLite 成為 Knowledge source of truth。
 
 ---
 
@@ -1570,6 +1597,8 @@ Knowledge SQLite index 為 derived state，必須可由 `knowledge/**/*.md` tran
 
 ## Milestone 6
 
+在開始 Milestone 6 前，以 Pre-M6 Provenance Prerequisite Patch 補齊早已屬於 V1 Memory contract、但未明確分配到 Milestone 1～5 的 `source_refs` implementation。此 prerequisite 只處理 Memory provenance metadata，不建立 Source lifecycle、Source repository、Source index 或 Source read authority。
+
 加入：
 
 ```text
@@ -1577,6 +1606,8 @@ sources/
 search_sources
 read_source
 ```
+
+Milestone 6 才負責真正的 Sources Layer search/read/index。`brain_read_source` 未來仍只能存取 `sources/` scope，不得把 `source_refs.local_file_path` 當成任意 filesystem read capability。
 
 ---
 

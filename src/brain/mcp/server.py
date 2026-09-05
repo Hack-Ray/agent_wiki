@@ -30,10 +30,12 @@ def brain_remember(
     title: str, content: str, summary: str | None = None,
     type: str = "learning", scope: str = "misc", tags: list[str] | None = None,
     importance: int | None = None, confidence: float | None = None,
+    source_refs: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Save a durable candidate memory and return its typed identifier."""
     return service.remember(
-        title, content, summary, type, scope, tags, importance, confidence
+        title, content, summary, type, scope, tags, importance, confidence,
+        source_refs,
     ).to_dict()
 
 
@@ -66,6 +68,7 @@ def brain_update(
     status: str | None = None,
     verification_basis: str | None = None,
     verification_evidence: str | None = None,
+    source_refs: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Update a memory or make a validated lifecycle transition.
 
@@ -88,6 +91,7 @@ def brain_update(
         status=status,
         verification_basis=verification_basis,
         verification_evidence=verification_evidence,
+        source_refs=source_refs,
     ).to_dict()
 
 

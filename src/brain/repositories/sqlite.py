@@ -11,6 +11,7 @@ from brain.models import Memory, SearchResult
 class SqliteMemoryRepository:
     _UPDATABLE_COLUMNS = {
         "title", "summary", "content", "type", "status", "scope", "tags",
+        "source_refs",
         "importance", "confidence", "updated_at", "verified_at",
         "deprecated_at", "verification_basis", "verification_evidence",
         "knowledge_path",
@@ -41,6 +42,7 @@ class SqliteMemoryRepository:
                 status TEXT NOT NULL,
                 scope TEXT NOT NULL,
                 tags TEXT NOT NULL,
+                source_refs TEXT NOT NULL DEFAULT '[]',
                 importance INTEGER,
                 confidence REAL,
                 created_at TEXT NOT NULL,
@@ -77,6 +79,9 @@ class SqliteMemoryRepository:
             self._add_column_if_missing("verification_basis", "TEXT")
             self._add_column_if_missing("verification_evidence", "TEXT")
             self._add_column_if_missing("knowledge_path", "TEXT")
+            self._add_column_if_missing(
+                "source_refs", "TEXT NOT NULL DEFAULT '[]'"
+            )
         except Exception:
             self._connection.rollback()
             raise
@@ -105,21 +110,25 @@ class SqliteMemoryRepository:
         status: str,
         scope: str,
         tags: list[str],
+        source_refs: list[dict[str, str]],
         importance: int | None,
         confidence: float | None,
         timestamp: str,
     ) -> Memory:
         tags_json = json.dumps(tags, ensure_ascii=False)
+        source_refs_json = json.dumps(source_refs, ensure_ascii=False)
         with self._connection:
             cursor = self._connection.execute(
                 """
                 INSERT INTO memories (
-                    title, summary, content, type, status, scope, tags,
+                    title, summary, content, type, status, scope, tags, source_refs,
                     importance, confidence, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (title, summary, content, memory_type, status, scope, tags_json,
-                 importance, confidence, timestamp, timestamp),
+                (
+                    title, summary, content, memory_type, status, scope, tags_json,
+                    source_refs_json, importance, confidence, timestamp, timestamp,
+                ),
             )
         memory = self.get(cursor.lastrowid)
         if memory is None:
@@ -150,6 +159,10 @@ class SqliteMemoryRepository:
         if "tags" in stored_changes:
             stored_changes["tags"] = json.dumps(
                 stored_changes["tags"], ensure_ascii=False
+            )
+        if "source_refs" in stored_changes:
+            stored_changes["source_refs"] = json.dumps(
+                stored_changes["source_refs"], ensure_ascii=False
             )
         assignments = ", ".join(f"{column} = ?" for column in stored_changes)
         parameters = [*stored_changes.values(), memory_id, expected_status]
@@ -216,6 +229,7 @@ class SqliteMemoryRepository:
             id=f"memory:{row['id']}", title=row["title"], summary=row["summary"],
             content=row["content"], type=row["type"], status=row["status"],
             scope=row["scope"], tags=json.loads(row["tags"]),
+            source_refs=json.loads(row["source_refs"]),
             importance=row["importance"], confidence=row["confidence"],
             created_at=row["created_at"], updated_at=row["updated_at"],
             verified_at=row["verified_at"], deprecated_at=row["deprecated_at"],
