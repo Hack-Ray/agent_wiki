@@ -10,10 +10,16 @@ from brain.models import (
     Memory,
     RebuildResult,
     SearchResult,
+    SourceDocument,
+    SourceIndexEntry,
+    SourceRebuildResult,
+    SourceSearchResult,
 )
 from brain.repositories.knowledge import KnowledgeFileRepository
 from brain.repositories.knowledge_index import SqliteKnowledgeIndexRepository
 from brain.repositories.sqlite import SqliteMemoryRepository
+from brain.repositories.source import SourceFileRepository
+from brain.repositories.source_index import SqliteSourceIndexRepository
 
 
 class BrainService:
@@ -29,10 +35,14 @@ class BrainService:
         repository: SqliteMemoryRepository,
         knowledge_repository: KnowledgeFileRepository | None = None,
         knowledge_index_repository: SqliteKnowledgeIndexRepository | None = None,
+        source_repository: SourceFileRepository | None = None,
+        source_index_repository: SqliteSourceIndexRepository | None = None,
     ) -> None:
         self._repository = repository
         self._knowledge_repository = knowledge_repository
         self._knowledge_index_repository = knowledge_index_repository
+        self._source_repository = source_repository
+        self._source_index_repository = source_index_repository
 
     def remember(
         self, title: str, content: str, summary: str | None = None,
@@ -212,6 +222,74 @@ class BrainService:
         index_repository.replace_all(entries)
         return RebuildResult(knowledge_indexed=len(entries))
 
+    def search_sources(
+        self, query: str, path: str | None = None, limit: int = 10
+    ) -> list[SourceSearchResult]:
+        query = self._required_text(query, "query")
+        if not 1 <= limit <= 50:
+            raise ValueError("limit must be between 1 and 50")
+        subtree = (
+            self._validate_source_path(path, require_supported=False)
+            if path is not None
+            else None
+        )
+        index_repository = self._require_source_index_repository()
+        source_repository = self._require_source_repository()
+        readable_results: list[SourceSearchResult] = []
+        offset = 0
+        batch_size = 50
+        while len(readable_results) < limit:
+            results = index_repository.search(
+                query=query, path=subtree, limit=batch_size, offset=offset
+            )
+            if not results:
+                break
+            offset += len(results)
+            for result in results:
+                try:
+                    safe_path = self._validate_source_path(
+                        result.path, require_supported=True
+                    )
+                    source_repository.read(safe_path)
+                except UnicodeError:
+                    raise
+                except (LookupError, ValueError):
+                    continue
+                readable_results.append(result)
+                if len(readable_results) == limit:
+                    break
+            if len(results) < batch_size:
+                break
+        return readable_results
+
+    def read_source(self, identifier: str) -> SourceDocument:
+        path = self._parse_source_id(identifier)
+        content = self._require_source_repository().read(path)
+        return SourceDocument(
+            id=f"source:{path}", kind="source", path=path, content=content
+        )
+
+    def rebuild_source_index(self) -> SourceRebuildResult:
+        source_repository = self._require_source_repository()
+        entries: list[SourceIndexEntry] = []
+        for listed_path in source_repository.list_supported_paths():
+            try:
+                path = self._validate_source_path(
+                    listed_path, require_supported=True
+                )
+                content = source_repository.read(path)
+            except Exception as error:
+                raise RuntimeError(
+                    f"Failed to index Source source:{listed_path}: {error}"
+                ) from error
+            entries.append(
+                SourceIndexEntry(
+                    path=path, name=PurePosixPath(path).name, content=content
+                )
+            )
+        self._require_source_index_repository().replace_all(entries)
+        return SourceRebuildResult(sources_indexed=len(entries))
+
     def update(
         self,
         identifier: str,
@@ -320,6 +398,14 @@ class BrainService:
             raise ValueError("memory id must be a positive integer")
         return int(raw_id)
 
+    @classmethod
+    def _parse_source_id(cls, identifier: str) -> str:
+        if not isinstance(identifier, str) or not identifier.startswith("source:"):
+            raise ValueError("id must be a typed identifier with the source: prefix")
+        return cls._validate_source_path(
+            identifier.removeprefix("source:"), require_supported=True
+        )
+
     @staticmethod
     def _validate_knowledge_path(value: str) -> str:
         if not isinstance(value, str) or not value.strip():
@@ -338,6 +424,27 @@ class BrainService:
             raise ValueError("knowledge_path must end with .md")
         return path.as_posix()
 
+    @staticmethod
+    def _validate_source_path(value: str, *, require_supported: bool) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("source path must be a non-empty string")
+        value = value.strip()
+        if "\\" in value or "\0" in value or ":" in value:
+            raise ValueError("source path contains forbidden characters")
+        windows_path = PureWindowsPath(value)
+        parts = value.split("/")
+        if windows_path.is_absolute() or windows_path.drive or windows_path.root:
+            raise ValueError("source path must be relative")
+        if any(part in {"", ".", ".."} for part in parts):
+            raise ValueError("source path contains invalid path segments")
+        path = PurePosixPath(value)
+        if (
+            require_supported
+            and path.suffix.lower() not in SourceFileRepository.SUPPORTED_EXTENSIONS
+        ):
+            raise ValueError("source path uses an unsupported extension")
+        return path.as_posix()
+
     def _require_knowledge_repository(self) -> KnowledgeFileRepository:
         if self._knowledge_repository is None:
             raise RuntimeError("Knowledge repository is not configured")
@@ -347,6 +454,16 @@ class BrainService:
         if self._knowledge_index_repository is None:
             raise RuntimeError("Knowledge index repository is not configured")
         return self._knowledge_index_repository
+
+    def _require_source_repository(self) -> SourceFileRepository:
+        if self._source_repository is None:
+            raise RuntimeError("Source repository is not configured")
+        return self._source_repository
+
+    def _require_source_index_repository(self) -> SqliteSourceIndexRepository:
+        if self._source_index_repository is None:
+            raise RuntimeError("Source index repository is not configured")
+        return self._source_index_repository
 
     @classmethod
     def _extract_knowledge_metadata(

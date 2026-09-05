@@ -72,3 +72,41 @@ class RebuildResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class SourceIndexEntry:
+    path: str
+    name: str
+    content: str
+
+
+@dataclass(frozen=True)
+class SourceSearchResult:
+    id: str
+    kind: str
+    path: str
+    name: str
+    snippet: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class SourceDocument:
+    id: str
+    kind: str
+    path: str
+    content: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class SourceRebuildResult:
+    sources_indexed: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
