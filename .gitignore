@@ -71,3 +71,11 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+
+# ==============================
+# Personal Brain data
+# ==============================
+memory/
+knowledge/
+sources/
