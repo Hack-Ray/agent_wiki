@@ -49,7 +49,7 @@ class BrainServiceIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             repository = SqliteMemoryRepository(Path(temporary_directory) / "brain.db")
             service = BrainService(repository)
-            for identifier in ("1", "knowledge:anything.md", "unknown:1", "memory:nope"):
+            for identifier in ("1", "unknown:1", "memory:nope"):
                 with self.subTest(identifier=identifier), self.assertRaises(ValueError):
                     service.read(identifier)
             with self.assertRaises(LookupError):

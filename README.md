@@ -3,9 +3,9 @@
 Personal AI Brain 是一套 local-first 的持久化記憶系統，讓 AI Agent 即使在新的 Session
 中沒有舊 Conversation Context，仍可主動搜尋並取回先前保存的重要資訊。
 
-目前專案完成 Milestone 1、Milestone 2 驗證與 Milestone 3：Codex 可以透過 MCP stdio
-呼叫 `brain_remember`、`brain_search`、`brain_read`、`brain_update`，Memory 會持久化於
-本機 SQLite，且支援 `candidate`、`verified`、`deprecated` lifecycle。
+目前專案已實作至 Milestone 4：Codex 可以透過 MCP stdio 管理持久化 Memory，並將
+`verified` Memory 整合為本機 Markdown Knowledge。Memory 支援 `candidate`、`verified`、
+`compiled`、`deprecated` lifecycle。
 
 詳細產品需求、Milestone 與 Non-Goals 以 [brain-spec.md](brain-spec.md) 為準；開發與
 architecture 規則請參考 [AGENTS.md](AGENTS.md)。README 只提供專案概覽與本機 setup。
@@ -18,15 +18,14 @@ Codex
 Brain MCP Adapter
   ↓
 Brain Service
-  ↓
-SQLite Repository
-  ↓
-memory/brain.db
+  ├─ SQLite Repository → memory/brain.db
+  └─ Knowledge Repository → knowledge/**/*.md
 ```
 
 - MCP layer 只負責 tool adapter，不直接操作 SQLite。
 - Service layer 負責 validation、typed identifier 與 Memory policy。
-- Repository layer 負責 SQLite persistence、FTS5 search、WAL 與 transaction。
+- Repository layer 負責 SQLite persistence、FTS5 Memory search、WAL 與 transaction，以及
+  UTF-8 Markdown Knowledge 的 atomic filesystem write。
 - Brain Core 不依賴 Codex-specific SDK；Codex 只是目前的主要 MCP client。
 
 ## Requirements
@@ -62,7 +61,8 @@ python -m venv .venv
 ```
 
 MCP client 一般會自行啟動與管理此 process，不需要建立常駐服務。Database 預設位置為
-`memory/brain.db`；若測試需要隔離 database，可設定 `BRAIN_DB_PATH` 覆寫。
+`memory/brain.db`，Knowledge root 預設為 `knowledge/`；若測試需要隔離 storage，可分別
+設定 `BRAIN_DB_PATH` 與 `BRAIN_KNOWLEDGE_PATH` 覆寫。
 
 ## Register with Codex
 
@@ -97,6 +97,11 @@ codex mcp list
 - `brain_search`
 - `brain_read`
 - `brain_update`
+- `brain_compile`
+
+`brain_read` 接受 `memory:<id>` 或 `knowledge:<relative-path.md>`。`brain_compile` 只接受
+`verified` Memory，且呼叫端必須提供安全的 relative `.md` path 與完整新版 Markdown；
+詳細 lifecycle 與 compile contract 以 `brain-spec.md` 為準。
 
 Codex MCP 設定方式亦可參考
 [OpenAI Model Context Protocol documentation](https://learn.chatgpt.com/zh-Hant/docs/extend/mcp)。
@@ -116,7 +121,9 @@ Tests 包含：
 - Memory typed identifier validation
 - FTS5 search 與 compact search result
 - WAL 與 `busy_timeout`
-- MCP client 實際啟動 stdio server 並列出、呼叫三個 tools
+- Memory lifecycle、Knowledge path validation、schema migration 與 compile failure recovery
+- UTF-8 Knowledge 建立、完整替換及跨 connection persistence
+- MCP client 實際啟動 stdio server，列出 tools 並呼叫完整 compile/read flow
 
 Milestone 2 的人工跨 Session 驗證結果記錄於
 [docs/validation/milestone-2.md](docs/validation/milestone-2.md)。

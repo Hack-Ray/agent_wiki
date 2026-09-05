@@ -22,6 +22,7 @@ class Memory:
     deprecated_at: str | None
     verification_basis: str | None
     verification_evidence: str | None
+    knowledge_path: str | None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -36,6 +37,16 @@ class SearchResult:
     status: str
     scope: str
     score: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Knowledge:
+    id: str
+    path: str
+    content: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -14,11 +14,16 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_mcp_remember_search_read_flow(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             database_path = Path(temporary_directory) / "brain.db"
+            knowledge_root = Path(temporary_directory) / "knowledge"
             parameters = StdioServerParameters(
                 command=sys.executable,
                 args=["-m", "brain.mcp.server"],
                 cwd=Path(__file__).resolve().parents[1],
-                env={**os.environ, "BRAIN_DB_PATH": str(database_path)},
+                env={
+                    **os.environ,
+                    "BRAIN_DB_PATH": str(database_path),
+                    "BRAIN_KNOWLEDGE_PATH": str(knowledge_root),
+                },
             )
             async with stdio_client(parameters) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
@@ -30,6 +35,7 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             "brain_search",
                             "brain_read",
                             "brain_update",
+                            "brain_compile",
                         },
                         {tool.name for tool in tools.tools},
                     )
@@ -68,12 +74,30 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(memory_id, search_results[0]["id"])
                     self.assertNotIn("content", search_results[0])
 
+                    markdown = "# MCP Knowledge\n\n## Summary\n\nCompiled over stdio.\n"
+                    compiled = await session.call_tool(
+                        "brain_compile",
+                        {
+                            "id": memory_id,
+                            "knowledge_path": "tests/mcp-knowledge.md",
+                            "knowledge_content": markdown,
+                        },
+                    )
+                    self.assertFalse(compiled.isError)
+                    self.assertEqual("compiled", compiled.structuredContent["status"])
+
                     read = await session.call_tool("brain_read", {"id": memory_id})
                     self.assertFalse(read.isError)
                     self.assertEqual(
                         "This complete content crossed the MCP stdio boundary.",
                         read.structuredContent["content"],
                     )
+
+                    knowledge = await session.call_tool(
+                        "brain_read", {"id": "knowledge:tests/mcp-knowledge.md"}
+                    )
+                    self.assertFalse(knowledge.isError)
+                    self.assertEqual(markdown, knowledge.structuredContent["content"])
 
             self.assertTrue(database_path.exists())
 

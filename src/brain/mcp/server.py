@@ -6,6 +6,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from brain.repositories.knowledge import KnowledgeFileRepository
 from brain.repositories.sqlite import SqliteMemoryRepository
 from brain.services.brain import BrainService
 
@@ -13,7 +14,10 @@ from brain.services.brain import BrainService
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "memory" / "brain.db"
 repository = SqliteMemoryRepository(Path(os.environ.get("BRAIN_DB_PATH", DEFAULT_DATABASE_PATH)))
-service = BrainService(repository)
+knowledge_repository = KnowledgeFileRepository(
+    Path(os.environ.get("BRAIN_KNOWLEDGE_PATH", PROJECT_ROOT / "knowledge"))
+)
+service = BrainService(repository, knowledge_repository)
 mcp = FastMCP("Personal AI Brain")
 
 
@@ -40,7 +44,7 @@ def brain_search(
 
 @mcp.tool()
 def brain_read(id: str) -> dict[str, Any]:
-    """Read one complete memory using a memory:<id> typed identifier."""
+    """Read complete Memory or Knowledge using its typed identifier."""
     return service.read(id).to_dict()
 
 
@@ -81,6 +85,19 @@ def brain_update(
         verification_basis=verification_basis,
         verification_evidence=verification_evidence,
     ).to_dict()
+
+
+@mcp.tool()
+def brain_compile(
+    id: str, knowledge_path: str, knowledge_content: str
+) -> dict[str, Any]:
+    """Persist Agent-consolidated Markdown from a verified Memory.
+
+    knowledge_content must be the complete new UTF-8 Markdown for the target,
+    not a fragment to append. The Agent must inspect known existing Knowledge
+    and perform all reasoning, organization, and consolidation before calling.
+    """
+    return service.compile(id, knowledge_path, knowledge_content).to_dict()
 
 
 def main() -> None:

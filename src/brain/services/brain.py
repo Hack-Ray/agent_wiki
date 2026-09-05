@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import PurePosixPath, PureWindowsPath
 
-from brain.models import Memory, SearchResult
+from brain.models import Knowledge, Memory, SearchResult
+from brain.repositories.knowledge import KnowledgeFileRepository
 from brain.repositories.sqlite import SqliteMemoryRepository
 
 
@@ -11,10 +13,16 @@ class BrainService:
         "candidate": {"candidate", "verified", "deprecated"},
         "verified": {"verified", "deprecated"},
         "deprecated": {"deprecated"},
+        "compiled": set(),
     }
 
-    def __init__(self, repository: SqliteMemoryRepository) -> None:
+    def __init__(
+        self,
+        repository: SqliteMemoryRepository,
+        knowledge_repository: KnowledgeFileRepository | None = None,
+    ) -> None:
         self._repository = repository
+        self._knowledge_repository = knowledge_repository
 
     def remember(
         self, title: str, content: str, summary: str | None = None,
@@ -49,12 +57,71 @@ class BrainService:
             query=query, scope=scope, memory_type=type, status=status, limit=limit
         )
 
-    def read(self, identifier: str) -> Memory:
+    def read(self, identifier: str) -> Memory | Knowledge:
+        if isinstance(identifier, str) and identifier.startswith("memory:"):
+            memory_id = self._parse_memory_id(identifier)
+            memory = self._repository.get(memory_id)
+            if memory is None:
+                raise LookupError(f"Memory not found: {identifier}")
+            return memory
+        if isinstance(identifier, str) and identifier.startswith("knowledge:"):
+            path = self._validate_knowledge_path(
+                identifier.removeprefix("knowledge:")
+            )
+            repository = self._require_knowledge_repository()
+            return Knowledge(
+                id=f"knowledge:{path}", path=path, content=repository.read(path)
+            )
+        raise ValueError("id must use the memory: or knowledge: prefix")
+
+    def compile(
+        self, identifier: str, knowledge_path: str, knowledge_content: str
+    ) -> Memory:
         memory_id = self._parse_memory_id(identifier)
+        path = self._validate_knowledge_path(knowledge_path)
+        if not isinstance(knowledge_content, str) or not knowledge_content.strip():
+            raise ValueError("knowledge_content must be a non-empty string")
+        content = knowledge_content
         memory = self._repository.get(memory_id)
         if memory is None:
             raise LookupError(f"Memory not found: {identifier}")
-        return memory
+        if memory.status != "verified":
+            raise ValueError(
+                f"only verified Memory can be compiled; current status: {memory.status}"
+            )
+        if memory.knowledge_path is not None and memory.knowledge_path != path:
+            raise ValueError("Memory already references a different knowledge_path")
+
+        knowledge_repository = self._require_knowledge_repository()
+        previous_content = knowledge_repository.read_optional(path)
+        knowledge_repository.write_atomic(path, content)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        try:
+            return self._repository.update(
+                memory_id,
+                expected_status="verified",
+                changes={
+                    "status": "compiled",
+                    "knowledge_path": path,
+                    "updated_at": timestamp,
+                },
+            )
+        except Exception as update_error:
+            try:
+                if previous_content is None:
+                    knowledge_repository.delete(path)
+                else:
+                    knowledge_repository.write_atomic(path, previous_content)
+            except Exception as recovery_error:
+                raise RuntimeError(
+                    "SQLite compile update failed and Knowledge recovery failed for "
+                    f"{path}; filesystem state requires manual inspection"
+                ) from ExceptionGroup(
+                    "compile and recovery failures", [update_error, recovery_error]
+                )
+            raise RuntimeError(
+                f"SQLite compile update failed; Knowledge was restored for {path}"
+            ) from update_error
 
     def update(
         self,
@@ -97,7 +164,7 @@ class BrainService:
             )
             if value is not None
         }
-        if current.status in {"verified", "deprecated"} and substantive_updates:
+        if current.status in {"verified", "compiled", "deprecated"} and substantive_updates:
             raise ValueError(
                 f"cannot change verified content fields: "
                 f"{', '.join(sorted(substantive_updates))}"
@@ -160,6 +227,29 @@ class BrainService:
         if not raw_id.isdigit() or int(raw_id) < 1:
             raise ValueError("memory id must be a positive integer")
         return int(raw_id)
+
+    @staticmethod
+    def _validate_knowledge_path(value: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("knowledge_path must be a non-empty string")
+        value = value.strip()
+        if "\\" in value or "\0" in value or ":" in value:
+            raise ValueError("knowledge_path contains forbidden characters")
+        windows_path = PureWindowsPath(value)
+        parts = value.split("/")
+        if windows_path.is_absolute() or windows_path.drive or windows_path.root:
+            raise ValueError("knowledge_path must be relative")
+        if any(part in {"", ".", ".."} for part in parts):
+            raise ValueError("knowledge_path contains invalid path segments")
+        path = PurePosixPath(value)
+        if not value.endswith(".md"):
+            raise ValueError("knowledge_path must end with .md")
+        return path.as_posix()
+
+    def _require_knowledge_repository(self) -> KnowledgeFileRepository:
+        if self._knowledge_repository is None:
+            raise RuntimeError("Knowledge repository is not configured")
+        return self._knowledge_repository
 
     @staticmethod
     def _required_text(value: str, name: str) -> str:

@@ -13,6 +13,7 @@ class SqliteMemoryRepository:
         "title", "summary", "content", "type", "status", "scope", "tags",
         "importance", "confidence", "updated_at", "verified_at",
         "deprecated_at", "verification_basis", "verification_evidence",
+        "knowledge_path",
     }
 
     def __init__(self, database_path: Path) -> None:
@@ -47,7 +48,8 @@ class SqliteMemoryRepository:
                 verified_at TEXT,
                 deprecated_at TEXT,
                 verification_basis TEXT,
-                verification_evidence TEXT
+                verification_evidence TEXT,
+                knowledge_path TEXT
             );
 
             CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -74,6 +76,7 @@ class SqliteMemoryRepository:
             self._add_column_if_missing("deprecated_at", "TEXT")
             self._add_column_if_missing("verification_basis", "TEXT")
             self._add_column_if_missing("verification_evidence", "TEXT")
+            self._add_column_if_missing("knowledge_path", "TEXT")
         except Exception:
             self._connection.rollback()
             raise
@@ -214,4 +217,5 @@ class SqliteMemoryRepository:
             verified_at=row["verified_at"], deprecated_at=row["deprecated_at"],
             verification_basis=row["verification_basis"],
             verification_evidence=row["verification_evidence"],
+            knowledge_path=row["knowledge_path"],
         )

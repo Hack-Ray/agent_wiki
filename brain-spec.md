@@ -140,6 +140,32 @@ Other Agent ┘
 
 ---
 
+## 2.7 Agent and Brain responsibilities
+
+```text
+Agent
+=
+Reasoning
++ Organization
++ Knowledge consolidation
+
+Brain Service
+=
+Validation
++ Lifecycle rules
++ Persistence coordination
+
+Repository / Filesystem
+=
+Durable persistence
+```
+
+Brain Core 提供 deterministic primitives，不負責理解 Memory 語意、摘要、重寫、合併 Knowledge，或判斷兩份內容在語意上是否相同。
+
+`brain_compile` 不得依賴 LLM、Embedding、Vector DB、Semantic Search、LangChain、LlamaIndex 或 GraphRAG。Agent 負責 intelligence，Brain 負責驗證與安全持久化。
+
+---
+
 # 3. High-Level Architecture
 
 ```text
@@ -262,6 +288,22 @@ Knowledge 必須：
 - 可被 VS Code 直接閱讀
 - 可被 Obsidian 等 Markdown 工具閱讀
 - 不使用強制依賴特定 Framework 的語法
+
+Knowledge path 使用相對於 `knowledge/` 的 logical path，例如：
+
+```text
+database/sql-server/deadlock.md
+```
+
+對應：
+
+```text
+knowledge/database/sql-server/deadlock.md
+```
+
+Knowledge path 必須是以 `.md` 結尾的 relative path，禁止 absolute path、`..`、path traversal，以及任何逃離 `knowledge/` 或覆寫其他 repository 檔案的行為。此驗證必須位於 Service/Core boundary，不得只依賴 MCP adapter。
+
+Knowledge Markdown 必須使用 UTF-8。寫入採 local filesystem 的最小安全策略：先在 target directory 寫入 temporary file，完成 write、flush、close 後再 atomic replace target，避免留下 partial target file。
 
 ---
 
@@ -841,28 +883,52 @@ summary
 ## brain_compile
 
 ```text
-brain_compile(id)
+brain_compile(
+    id,
+    knowledge_path,
+    knowledge_content
+)
 ```
 
-用途：
+規則：
 
-將 Memory 整理進正式 Knowledge。
+- `id` 必須是 `memory:<id>` typed identifier。
+- Memory 必須為 `verified`；`candidate`、`deprecated`、`compiled` 都不得提出新的 compile request。
+- `knowledge_path` 由 Agent 決定，並使用相對於 `knowledge/` 的安全 logical path。
+- `knowledge_content` 由 Agent 完成 reasoning 與 consolidation 後提供，代表 target Knowledge 的完整新版 Markdown。
+- Brain 不自行產生、摘要、重寫、合併或 append Memory content。
+- Target 不存在時建立 Markdown；target 已存在時，以 Agent 提供的完整新版 Markdown 安全更新。
 
-不是單純把 content dump 成 Markdown。
+Compile 前確認是否已有相關 Knowledge 是 Agent workflow。Milestone 4 尚未提供 Knowledge FTS；Agent 可以使用已知 target path 與 `brain_read(knowledge:<path>)` 進行 deterministic lookup。
 
-應先：
+成功 compile 後：
 
 ```text
-搜尋是否已有相關 Knowledge
+Memory.status = compiled
+Memory.knowledge_path = <target relative path>
 ```
 
-如果已有：
+Memory 不刪除，且 `verified_at`、`verification_basis`、`verification_evidence` 必須完整保留。`compiled` 表示該 verified Memory 已整合進 canonical Markdown Knowledge，不代表 SQLite 成為 Knowledge source of truth。
+
+---
+
+### Compile persistence ordering
+
+Filesystem 與 SQLite 無法形成單一 ACID transaction，系統不得假裝具有跨儲存體 transaction。
+
+最小 operation ordering：
 
 ```text
-優先更新
+validate Memory / path / content
+        ↓
+safe-write Knowledge target
+        ↓
+update Memory to compiled in SQLite
 ```
 
-而不是一直建立重複文件。
+- Knowledge write 失敗時，不得將 Memory 更新為 `compiled`，且 target 不得留下 partial write。
+- Knowledge write 成功但 SQLite update 失敗時，不得回報成功。系統必須執行 deterministic recovery，並清楚回報是否留下可恢復的 filesystem state。
+- Milestone 4 不加入 distributed transaction、filesystem locking、`content_hash`、`expected_hash` 或 optimistic concurrency contract。
 
 ---
 
@@ -1044,7 +1110,19 @@ Verification
 verified
     │
     ▼
-brain_compile
+brain_search / deterministic path lookup
+    │
+    ▼
+Agent 讀取既有 Knowledge（若存在）
+    │
+    ▼
+Agent reasoning / consolidation
+    │
+    ▼
+Agent 產生完整新版 Markdown
+    │
+    ▼
+brain_compile(id, knowledge_path, knowledge_content)
     │
     ▼
 knowledge/*.md
@@ -1054,26 +1132,30 @@ knowledge/*.md
 
 # 21. Compile Rules
 
-Compile 必須：
+Agent 在呼叫 Compile 前必須：
 
 1. 搜尋既有 Knowledge。
 2. 判斷應更新還是建立新文件。
 3. 避免 Knowledge fragmentation。
 4. 保留重要 Evidence。
 5. 不將未驗證推測寫成 Fact。
-6. 更新最後修改時間。
-7. 保持 Markdown Human-readable。
+6. 產生完整新版 Markdown，而不是要求 Brain append Memory content。
+7. 更新 Knowledge 中的最後修改時間。
+8. 保持 Markdown Human-readable。
 
+Brain Service 只驗證 compile contract、Memory lifecycle、path 與 persistence，不負責上述語意判斷或 Markdown 生成。
 
-V1 的重複判斷只採 deterministic 規則，不做 semantic dedup，不使用 Embedding、Vector similarity 或 LLM 語意相似度判定是否重複。判斷順序如下：
+V1 的重複判斷只採 deterministic 規則，不做 semantic dedup，不使用 Embedding、Vector similarity 或 LLM 語意相似度判定。Agent 判斷順序如下：
 
 1. Memory 已有明確 `knowledge_path` 或 existing Knowledge reference 時，更新該 Knowledge。
-2. 指定或推導的 normalized path 已存在時，更新該 Knowledge。
+2. 指定或推導的 normalized path 已存在時，先讀取並提供整合後的完整新版 Knowledge。
 3. 相同 scope 下只有一份 normalized title 完全相同的 Knowledge 時，更新該 Knowledge。
 4. 上述 deterministic 規則皆未匹配時，才建立新文件。
 5. 若規則匹配到多個互相衝突的候選，停止 compile 並回報衝突，不得任意挑選。
 
 已有 Knowledge 時優先更新，不建立重複文件。Semantic dedup 屬於 V1 Non-Goals。
+
+Milestone 4 不建立 Knowledge FTS。若 Agent 已知 target path，使用 deterministic path 與 `brain_read(knowledge:<path>)` 判斷是否存在；一般 Knowledge search 與 index rebuild 留給 Milestone 5。
 
 ---
 
@@ -1343,6 +1425,10 @@ brain_remember
 ...
 ```
 
+## Compile boundary
+
+Agent 負責 reasoning、organization、existing Knowledge 判斷與完整 Markdown consolidation。Brain Service 負責驗證 typed identifier、lifecycle、path 與 persistence ordering。Repository 與 filesystem adapter 只負責 durable persistence，不執行語意處理。
+
 ---
 
 # 30. V1 Development Milestones
@@ -1408,13 +1494,15 @@ deprecated
 
 ```text
 knowledge/
-```
-
-與：
-
-```text
 brain_compile
+verified → compiled
+knowledge_path
+knowledge:<relative-path>
+brain_read Knowledge
+UTF-8 atomic Knowledge write
 ```
+
+Milestone 4 的 `brain_search` 仍只搜尋 Memory；Knowledge FTS 與 `brain_rebuild_index` 屬於 Milestone 5。
 
 ---
 
@@ -1606,7 +1694,7 @@ Claude Code MCP Client
 
 ## AC-12 Deterministic Compile Deduplication
 
-對同一 `knowledge_path`、既有 Knowledge reference，或相同 scope 下唯一的 normalized title 重複執行 `brain_compile`，必須更新同一 Knowledge，不建立重複文件；V1 不執行 semantic dedup。
+Agent 必須依既有 `knowledge_path`、明確 target path、existing Knowledge reference，或相同 scope 下唯一 normalized title 執行 deterministic lookup。`brain_compile` 對 Agent 指定的同一 `knowledge_path` 必須安全更新同一 Knowledge，不建立重複文件，也不得自行執行 semantic dedup。
 
 ---
 
