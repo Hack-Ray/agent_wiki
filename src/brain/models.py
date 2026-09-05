@@ -31,15 +31,19 @@ class Memory:
 @dataclass(frozen=True)
 class SearchResult:
     id: str
+    kind: str
     title: str
     summary: str
-    type: str
-    status: str
+    type: str | None
+    status: str | None
     scope: str
     score: float
+    knowledge_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result = asdict(self)
+        result.pop("knowledge_path")
+        return result
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,23 @@ class Knowledge:
     id: str
     path: str
     content: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class KnowledgeIndexEntry:
+    path: str
+    title: str
+    summary: str
+    scope: str
+    content: str
+
+
+@dataclass(frozen=True)
+class RebuildResult:
+    knowledge_indexed: int
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

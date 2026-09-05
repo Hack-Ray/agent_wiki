@@ -653,10 +653,13 @@ content
 tags
 ```
 
-Search Result 只回傳摘要資訊：
+Milestone 5 後，`brain_search` 對外維持單一 unified search，內部同時查詢 Memory FTS 與 Knowledge FTS。Agent 不需要知道底層 index 數量，也不新增 `brain_search_memory` 或 `brain_search_knowledge`。
+
+Search Result 只回傳 lightweight metadata：
 
 ```text
 id
+kind
 title
 summary
 type
@@ -664,6 +667,8 @@ status
 scope
 score
 ```
+
+`kind` 為 `memory` 或 `knowledge`。Memory 使用 `memory:<id>` 並回傳 lifecycle status；Knowledge 使用 `knowledge:<relative-path>`，其 `status` 與 `type` 為 null，不得把 Memory 的 `compiled` 狀態套用到 Knowledge entity。
 
 不要直接回傳完整 Content。
 
@@ -676,6 +681,33 @@ brain_read()
 目的：
 
 降低 Context Consumption。
+
+## 13.1 Filtering and default visibility
+
+- `scope` 同時套用於 Memory 與 Knowledge，採 exact deterministic match。
+- `status` 與 `type` 是 Memory-only filter；caller 明確提供任一者時，只回傳符合的 Memory，不混入沒有這些欄位的 Knowledge。
+- 未提供 `status` 時，`verified`、`candidate` 與 `compiled` Memory 可以成為候選，`deprecated` Memory 預設隱藏。
+- Caller 明確指定 `status = deprecated` 時，才回傳 deprecated Memory。
+
+## 13.2 Canonical suppression and priority
+
+Knowledge 是 canonical long-term representation，Memory 是 supporting / historical context。若 query 同時命中 `knowledge:X` 與一筆 `status = compiled`、`knowledge_path = X` 的 Memory，結果保留 Knowledge 並抑制該 compiled Memory。Memory record 本身不得刪除或修改。
+
+若對應 Knowledge 不存在、未被目前 query 命中，或因 caller 提供 Memory-only filter 而未參與此次 search，compiled Memory 仍可依 filter 出現。
+
+SQLite Knowledge hit 在 merge 前必須確認對應 canonical Markdown 仍存在且可讀；stale derived index 不得回傳不存在的 Knowledge，也不得因此抑制 compiled Memory。
+
+Milestone 5 不跨來源比較或 normalization BM25 score。Merged result 使用固定 priority：
+
+```text
+Knowledge
+verified Memory
+candidate Memory
+compiled Memory（未被 canonical Knowledge 抑制時）
+deprecated Memory（僅明確要求時）
+```
+
+每個來源與 lifecycle group 內維持自身 FTS relevance order，再以 typed identifier 作 deterministic tie-break。`limit` 必須在 filtering、suppression 與 priority merge 全部完成後套用，最終結果不得超過 caller 指定值。
 
 ---
 
@@ -702,6 +734,15 @@ SQLite index 必須：
 可重建
 ```
 
+Knowledge index 與 Memory records 必須使用邏輯分離的 persistence structure，例如 `knowledge_index` 與 `knowledge_fts`。Knowledge Markdown 是 canonical source of truth；SQLite 只保存 derived metadata 與 searchable copy，不能成為唯一正文。
+
+Metadata 不使用 LLM，採 deterministic extraction：
+
+- `title`：第一個 H1 去除 heading marker 後的 trimmed 內容；不存在時 fallback 為 filename stem。
+- `summary`：優先使用 `## Summary` 下第一段非空正文；不存在時使用第一段非 heading 的非空正文；仍不存在時使用 title。
+- `content`：完整 Markdown，只供 FTS indexing，不由 `brain_search` 回傳。
+- `scope`：relative path 的 top-level directory；root-level Markdown 使用 `misc`。
+
 系統應提供：
 
 ```text
@@ -717,7 +758,9 @@ knowledge/
 建立 index。
 
 
-`brain_rebuild_index` 僅能重建由 `knowledge/*.md` 衍生的 Knowledge Search Index 與必要 metadata。不得刪除、重建、覆寫或修改任何 Memory records、Memory lifecycle 狀態或其他非衍生資料。
+`brain_rebuild_index` 僅能重建由 `knowledge/**/*.md` 衍生的 Knowledge Search Index 與必要 metadata。不得刪除、重建、覆寫或修改任何 Memory records、Memory lifecycle 狀態、Knowledge Markdown 或其他非衍生資料。
+
+Rebuild 必須先完成 filesystem scan、UTF-8 read 與 metadata extraction，再於單一 SQLite transaction replace derived Knowledge index。任何步驟失敗都不得回報成功；transaction 失敗必須 rollback，保留先前完整 index。Knowledge index 被 clear 或刪除後，仍必須可由 Markdown 完整重建。
 
 ---
 
@@ -792,6 +835,8 @@ Memory
 +
 Knowledge Index
 ```
+
+回傳 unified lightweight result；filter、canonical suppression、priority 與 final limit 依第 13 節定義。
 
 ---
 
@@ -981,7 +1026,7 @@ knowledge/
 建立 Search Index。
 
 
-此 Tool 只可重建 derived Knowledge Search Index，不得刪除、重建、覆寫或修改 Memory records。
+此 Tool 只可重建 derived Knowledge Search Index，不得刪除、重建、覆寫或修改 Memory records、lifecycle metadata 或 Knowledge Markdown。成功時回傳 indexed Knowledge 數量；失敗時不得把 partial rebuild 當成成功。
 
 ---
 
@@ -1155,7 +1200,7 @@ V1 的重複判斷只採 deterministic 規則，不做 semantic dedup，不使�
 
 已有 Knowledge 時優先更新，不建立重複文件。Semantic dedup 屬於 V1 Non-Goals。
 
-Milestone 4 不建立 Knowledge FTS。若 Agent 已知 target path，使用 deterministic path 與 `brain_read(knowledge:<path>)` 判斷是否存在；一般 Knowledge search 與 index rebuild 留給 Milestone 5。
+Milestone 4 不建立 Knowledge FTS。Milestone 5 起，Agent 可使用 unified `brain_search` 尋找 Knowledge；若已知 target path，仍使用 deterministic path 與 `brain_read(knowledge:<path>)` 取得完整內容。
 
 ---
 
@@ -1512,13 +1557,14 @@ Milestone 4 的 `brain_search` 仍只搜尋 Memory；Knowledge FTS 與 `brain_re
 
 ```text
 Knowledge FTS Index
+Deterministic Markdown metadata extraction
+Unified Memory + Knowledge brain_search
+Canonical Knowledge suppression
+Deterministic priority and final limit
+brain_rebuild_index
 ```
 
-與：
-
-```text
-rebuild_index
-```
+Knowledge SQLite index 為 derived state，必須可由 `knowledge/**/*.md` transactionally rebuild。Milestone 5 不加入 Sources、Semantic Search、Vector Search、Hybrid Search 或 reranking。
 
 ---
 

@@ -36,6 +36,7 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             "brain_read",
                             "brain_update",
                             "brain_compile",
+                            "brain_rebuild_index",
                         },
                         {tool.name for tool in tools.tools},
                     )
@@ -98,6 +99,23 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     )
                     self.assertFalse(knowledge.isError)
                     self.assertEqual(markdown, knowledge.structuredContent["content"])
+
+                    rebuilt = await session.call_tool("brain_rebuild_index", {})
+                    self.assertFalse(rebuilt.isError)
+                    self.assertEqual(1, rebuilt.structuredContent["knowledge_indexed"])
+
+                    knowledge_search = await session.call_tool(
+                        "brain_search", {"query": "Compiled stdio"}
+                    )
+                    self.assertFalse(knowledge_search.isError)
+                    knowledge_results = knowledge_search.structuredContent["result"]
+                    self.assertEqual(
+                        "knowledge:tests/mcp-knowledge.md",
+                        knowledge_results[0]["id"],
+                    )
+                    self.assertEqual("knowledge", knowledge_results[0]["kind"])
+                    self.assertIsNone(knowledge_results[0]["status"])
+                    self.assertNotIn("content", knowledge_results[0])
 
             self.assertTrue(database_path.exists())
 

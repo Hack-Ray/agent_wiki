@@ -7,6 +7,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from brain.repositories.knowledge import KnowledgeFileRepository
+from brain.repositories.knowledge_index import SqliteKnowledgeIndexRepository
 from brain.repositories.sqlite import SqliteMemoryRepository
 from brain.services.brain import BrainService
 
@@ -17,7 +18,10 @@ repository = SqliteMemoryRepository(Path(os.environ.get("BRAIN_DB_PATH", DEFAULT
 knowledge_repository = KnowledgeFileRepository(
     Path(os.environ.get("BRAIN_KNOWLEDGE_PATH", PROJECT_ROOT / "knowledge"))
 )
-service = BrainService(repository, knowledge_repository)
+knowledge_index_repository = SqliteKnowledgeIndexRepository(
+    Path(os.environ.get("BRAIN_DB_PATH", DEFAULT_DATABASE_PATH))
+)
+service = BrainService(repository, knowledge_repository, knowledge_index_repository)
 mcp = FastMCP("Personal AI Brain")
 
 
@@ -38,7 +42,7 @@ def brain_search(
     query: str, scope: str | None = None, type: str | None = None,
     status: str | None = None, limit: int = 10,
 ) -> list[dict[str, Any]]:
-    """Search memories and return compact summaries, not full content."""
+    """Search Memory and Knowledge, returning lightweight unified results."""
     return [result.to_dict() for result in service.search(query, scope, type, status, limit)]
 
 
@@ -98,6 +102,12 @@ def brain_compile(
     and perform all reasoning, organization, and consolidation before calling.
     """
     return service.compile(id, knowledge_path, knowledge_content).to_dict()
+
+
+@mcp.tool()
+def brain_rebuild_index() -> dict[str, Any]:
+    """Rebuild the derived Knowledge index from canonical Markdown files."""
+    return service.rebuild_index().to_dict()
 
 
 def main() -> None:

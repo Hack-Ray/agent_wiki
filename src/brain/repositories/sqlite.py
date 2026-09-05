@@ -180,10 +180,13 @@ class SqliteMemoryRepository:
             if value is not None:
                 clauses.append(f"m.{column} = ?")
                 parameters.append(value)
+        if status is None:
+            clauses.append("m.status != 'deprecated'")
         parameters.append(limit)
         rows = self._connection.execute(
             f"""
             SELECT m.id, m.title, m.summary, m.type, m.status, m.scope,
+                   m.knowledge_path,
                    bm25(memories_fts) AS score
             FROM memories_fts
             JOIN memories AS m ON m.id = memories_fts.rowid
@@ -194,9 +197,10 @@ class SqliteMemoryRepository:
             parameters,
         ).fetchall()
         return [SearchResult(
-            id=f"memory:{row['id']}", title=row["title"], summary=row["summary"],
+            id=f"memory:{row['id']}", kind="memory",
+            title=row["title"], summary=row["summary"],
             type=row["type"], status=row["status"], scope=row["scope"],
-            score=row["score"],
+            score=row["score"], knowledge_path=row["knowledge_path"],
         ) for row in rows]
 
     @staticmethod

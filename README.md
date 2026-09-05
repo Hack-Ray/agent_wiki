@@ -3,9 +3,9 @@
 Personal AI Brain 是一套 local-first 的持久化記憶系統，讓 AI Agent 即使在新的 Session
 中沒有舊 Conversation Context，仍可主動搜尋並取回先前保存的重要資訊。
 
-目前專案已實作至 Milestone 4：Codex 可以透過 MCP stdio 管理持久化 Memory，並將
-`verified` Memory 整合為本機 Markdown Knowledge。Memory 支援 `candidate`、`verified`、
-`compiled`、`deprecated` lifecycle。
+目前專案已實作至 Milestone 5：Codex 可以透過 MCP stdio 管理持久化 Memory、將
+`verified` Memory 整合為本機 Markdown Knowledge，並以單一 `brain_search` 搜尋兩者。
+Memory 支援 `candidate`、`verified`、`compiled`、`deprecated` lifecycle。
 
 詳細產品需求、Milestone 與 Non-Goals 以 [brain-spec.md](brain-spec.md) 為準；開發與
 architecture 規則請參考 [AGENTS.md](AGENTS.md)。README 只提供專案概覽與本機 setup。
@@ -18,8 +18,9 @@ Codex
 Brain MCP Adapter
   ↓
 Brain Service
-  ├─ SQLite Repository → memory/brain.db
-  └─ Knowledge Repository → knowledge/**/*.md
+  ├─ Memory Repository → memory/brain.db (Memory + Memory FTS)
+  ├─ Knowledge Index Repository → memory/brain.db (derived Knowledge FTS)
+  └─ Knowledge Repository → knowledge/**/*.md (canonical Knowledge)
 ```
 
 - MCP layer 只負責 tool adapter，不直接操作 SQLite。
@@ -98,10 +99,19 @@ codex mcp list
 - `brain_read`
 - `brain_update`
 - `brain_compile`
+- `brain_rebuild_index`
 
 `brain_read` 接受 `memory:<id>` 或 `knowledge:<relative-path.md>`。`brain_compile` 只接受
 `verified` Memory，且呼叫端必須提供安全的 relative `.md` path 與完整新版 Markdown；
 詳細 lifecycle 與 compile contract 以 `brain-spec.md` 為準。
+
+`brain_search` 回傳 Memory 與 Knowledge 的 unified lightweight results；完整內容仍需透過
+typed identifier 呼叫 `brain_read`。Knowledge Markdown 是 canonical source，SQLite Knowledge
+index 可隨時由下列 MCP tool 重建：
+
+```text
+brain_rebuild_index()
+```
 
 Codex MCP 設定方式亦可參考
 [OpenAI Model Context Protocol documentation](https://learn.chatgpt.com/zh-Hant/docs/extend/mcp)。
@@ -123,7 +133,9 @@ Tests 包含：
 - WAL 與 `busy_timeout`
 - Memory lifecycle、Knowledge path validation、schema migration 與 compile failure recovery
 - UTF-8 Knowledge 建立、完整替換及跨 connection persistence
-- MCP client 實際啟動 stdio server，列出 tools 並呼叫完整 compile/read flow
+- Unified Memory/Knowledge search、canonical suppression、filtering、priority 與 final limit
+- Knowledge index clear/rebuild 與 transactional failure safety
+- MCP client 實際啟動 stdio server，呼叫 Knowledge search/read/rebuild flow
 
 Milestone 2 的人工跨 Session 驗證結果記錄於
 [docs/validation/milestone-2.md](docs/validation/milestone-2.md)。

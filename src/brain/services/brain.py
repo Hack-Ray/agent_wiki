@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from pathlib import PurePosixPath, PureWindowsPath
 
-from brain.models import Knowledge, Memory, SearchResult
+from brain.models import (
+    Knowledge,
+    KnowledgeIndexEntry,
+    Memory,
+    RebuildResult,
+    SearchResult,
+)
 from brain.repositories.knowledge import KnowledgeFileRepository
+from brain.repositories.knowledge_index import SqliteKnowledgeIndexRepository
 from brain.repositories.sqlite import SqliteMemoryRepository
 
 
@@ -20,9 +28,11 @@ class BrainService:
         self,
         repository: SqliteMemoryRepository,
         knowledge_repository: KnowledgeFileRepository | None = None,
+        knowledge_index_repository: SqliteKnowledgeIndexRepository | None = None,
     ) -> None:
         self._repository = repository
         self._knowledge_repository = knowledge_repository
+        self._knowledge_index_repository = knowledge_index_repository
 
     def remember(
         self, title: str, content: str, summary: str | None = None,
@@ -53,9 +63,61 @@ class BrainService:
         query = self._required_text(query, "query")
         if not 1 <= limit <= 50:
             raise ValueError("limit must be between 1 and 50")
-        return self._repository.search(
-            query=query, scope=scope, memory_type=type, status=status, limit=limit
+        candidate_limit = 50
+        memory_statuses = [status] if status is not None else [
+            "verified", "candidate", "compiled"
+        ]
+        memory_results = [
+            result
+            for memory_status in memory_statuses
+            for result in self._repository.search(
+                query=query,
+                scope=scope,
+                memory_type=type,
+                status=memory_status,
+                limit=candidate_limit,
+            )
+        ]
+        knowledge_results: list[SearchResult] = []
+        if type is None and status is None and self._knowledge_index_repository:
+            knowledge_results = self._knowledge_index_repository.search(
+                query=query, scope=scope, limit=candidate_limit
+            )
+            knowledge_repository = self._require_knowledge_repository()
+            knowledge_results = [
+                result
+                for result in knowledge_results
+                if result.knowledge_path is not None
+                and knowledge_repository.read_optional(result.knowledge_path) is not None
+            ]
+
+        matched_knowledge_paths = {
+            result.knowledge_path for result in knowledge_results
+        }
+        memory_results = [
+            result
+            for result in memory_results
+            if not (
+                result.status == "compiled"
+                and result.knowledge_path in matched_knowledge_paths
+            )
+        ]
+        priority = {
+            ("knowledge", None): 0,
+            ("memory", "verified"): 1,
+            ("memory", "candidate"): 2,
+            ("memory", "compiled"): 3,
+            ("memory", "deprecated"): 4,
+        }
+        merged = sorted(
+            [*knowledge_results, *memory_results],
+            key=lambda result: (
+                priority.get((result.kind, result.status), 5),
+                result.score,
+                result.id,
+            ),
         )
+        return merged[:limit]
 
     def read(self, identifier: str) -> Memory | Knowledge:
         if isinstance(identifier, str) and identifier.startswith("memory:"):
@@ -97,7 +159,7 @@ class BrainService:
         knowledge_repository.write_atomic(path, content)
         timestamp = datetime.now(timezone.utc).isoformat()
         try:
-            return self._repository.update(
+            compiled = self._repository.update(
                 memory_id,
                 expected_status="verified",
                 changes={
@@ -122,6 +184,28 @@ class BrainService:
             raise RuntimeError(
                 f"SQLite compile update failed; Knowledge was restored for {path}"
             ) from update_error
+
+        if self._knowledge_index_repository is not None:
+            try:
+                self._knowledge_index_repository.upsert(
+                    self._extract_knowledge_metadata(path, content)
+                )
+            except Exception as index_error:
+                raise RuntimeError(
+                    "Compile succeeded but Knowledge index update failed; "
+                    "run brain_rebuild_index"
+                ) from index_error
+        return compiled
+
+    def rebuild_index(self) -> RebuildResult:
+        knowledge_repository = self._require_knowledge_repository()
+        index_repository = self._require_knowledge_index_repository()
+        entries = [
+            self._extract_knowledge_metadata(path, knowledge_repository.read(path))
+            for path in knowledge_repository.list_markdown_paths()
+        ]
+        index_repository.replace_all(entries)
+        return RebuildResult(knowledge_indexed=len(entries))
 
     def update(
         self,
@@ -250,6 +334,55 @@ class BrainService:
         if self._knowledge_repository is None:
             raise RuntimeError("Knowledge repository is not configured")
         return self._knowledge_repository
+
+    def _require_knowledge_index_repository(self) -> SqliteKnowledgeIndexRepository:
+        if self._knowledge_index_repository is None:
+            raise RuntimeError("Knowledge index repository is not configured")
+        return self._knowledge_index_repository
+
+    @classmethod
+    def _extract_knowledge_metadata(
+        cls, path: str, content: str
+    ) -> KnowledgeIndexEntry:
+        lines = content.splitlines()
+        title = next(
+            (
+                match.group(1).strip().rstrip("#").strip()
+                for line in lines
+                if (match := re.match(r"^#\s+(.+)$", line.strip()))
+            ),
+            PurePosixPath(path).stem,
+        )
+        summary = ""
+        for index, line in enumerate(lines):
+            if re.match(r"^##\s+Summary\s*#*\s*$", line.strip(), re.IGNORECASE):
+                summary = cls._first_markdown_paragraph(lines[index + 1 :], True)
+                break
+        if not summary:
+            summary = cls._first_markdown_paragraph(lines, False)
+        if not summary:
+            summary = title
+        parts = PurePosixPath(path).parts
+        scope = parts[0] if len(parts) > 1 else "misc"
+        return KnowledgeIndexEntry(
+            path=path, title=title, summary=summary, scope=scope, content=content
+        )
+
+    @staticmethod
+    def _first_markdown_paragraph(lines: list[str], stop_at_heading: bool) -> str:
+        paragraph: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                if stop_at_heading:
+                    break
+                continue
+            if not stripped:
+                if paragraph:
+                    break
+                continue
+            paragraph.append(stripped)
+        return " ".join(paragraph)
 
     @staticmethod
     def _required_text(value: str, name: str) -> str:

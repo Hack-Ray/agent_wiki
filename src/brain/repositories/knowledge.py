@@ -23,6 +23,13 @@ class KnowledgeFileRepository:
         except LookupError:
             return None
 
+    def list_markdown_paths(self) -> list[str]:
+        return sorted(
+            path.relative_to(self._root).as_posix()
+            for path in self._root.rglob("*.md")
+            if path.is_file()
+        )
+
     def write_atomic(self, logical_path: str, content: str) -> None:
         target = self._target(logical_path)
         target.parent.mkdir(parents=True, exist_ok=True)
