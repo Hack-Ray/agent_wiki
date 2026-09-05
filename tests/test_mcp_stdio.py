@@ -25,7 +25,12 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     await session.initialize()
                     tools = await session.list_tools()
                     self.assertEqual(
-                        {"brain_remember", "brain_search", "brain_read"},
+                        {
+                            "brain_remember",
+                            "brain_search",
+                            "brain_read",
+                            "brain_update",
+                        },
                         {tool.name for tool in tools.tools},
                     )
 
@@ -41,8 +46,22 @@ class McpStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     self.assertFalse(remembered.isError)
                     memory_id = remembered.structuredContent["id"]
 
+                    updated = await session.call_tool(
+                        "brain_update",
+                        {
+                            "id": memory_id,
+                            "status": "verified",
+                            "verification_basis": "evidence",
+                            "verification_evidence": "Confirmed by MCP integration test.",
+                        },
+                    )
+                    self.assertFalse(updated.isError)
+                    self.assertEqual("verified", updated.structuredContent["status"])
+                    self.assertIsNotNone(updated.structuredContent["verified_at"])
+
                     searched = await session.call_tool(
-                        "brain_search", {"query": "boundary stdio"}
+                        "brain_search",
+                        {"query": "boundary stdio", "status": "verified"},
                     )
                     self.assertFalse(searched.isError)
                     search_results = searched.structuredContent["result"]

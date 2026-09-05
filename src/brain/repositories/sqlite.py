@@ -9,6 +9,12 @@ from brain.models import Memory, SearchResult
 
 
 class SqliteMemoryRepository:
+    _UPDATABLE_COLUMNS = {
+        "title", "summary", "content", "type", "status", "scope", "tags",
+        "importance", "confidence", "updated_at", "verified_at",
+        "deprecated_at", "verification_basis", "verification_evidence",
+    }
+
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
         database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -16,7 +22,11 @@ class SqliteMemoryRepository:
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA busy_timeout=5000")
-        self._initialize_schema()
+        try:
+            self._initialize_schema()
+        except Exception:
+            self._connection.close()
+            raise
 
     def _initialize_schema(self) -> None:
         self._connection.executescript(
@@ -33,7 +43,11 @@ class SqliteMemoryRepository:
                 importance INTEGER,
                 confidence REAL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                verified_at TEXT,
+                deprecated_at TEXT,
+                verification_basis TEXT,
+                verification_evidence TEXT
             );
 
             CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -45,8 +59,35 @@ class SqliteMemoryRepository:
                 INSERT INTO memories_fts(rowid, title, summary, content, tags)
                 VALUES (new.id, new.title, new.summary, new.content, new.tags);
             END;
+
+            CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
+                INSERT INTO memories_fts(memories_fts, rowid, title, summary, content, tags)
+                VALUES ('delete', old.id, old.title, old.summary, old.content, old.tags);
+                INSERT INTO memories_fts(rowid, title, summary, content, tags)
+                VALUES (new.id, new.title, new.summary, new.content, new.tags);
+            END;
             """
         )
+        self._connection.execute("BEGIN")
+        try:
+            self._add_column_if_missing("verified_at", "TEXT")
+            self._add_column_if_missing("deprecated_at", "TEXT")
+            self._add_column_if_missing("verification_basis", "TEXT")
+            self._add_column_if_missing("verification_evidence", "TEXT")
+        except Exception:
+            self._connection.rollback()
+            raise
+        else:
+            self._connection.commit()
+
+    def _add_column_if_missing(self, name: str, definition: str) -> None:
+        columns = {
+            row["name"] for row in self._connection.execute("PRAGMA table_info(memories)")
+        }
+        if name not in columns:
+            self._connection.execute(
+                f"ALTER TABLE memories ADD COLUMN {name} {definition}"
+            )
 
     def close(self) -> None:
         self._connection.close()
@@ -87,6 +128,39 @@ class SqliteMemoryRepository:
             "SELECT * FROM memories WHERE id = ?", (memory_id,)
         ).fetchone()
         return self._to_memory(row) if row else None
+
+    def update(
+        self,
+        memory_id: int,
+        *,
+        expected_status: str,
+        changes: dict[str, object],
+    ) -> Memory:
+        if not changes:
+            raise ValueError("changes must not be empty")
+        unsupported_columns = changes.keys() - self._UPDATABLE_COLUMNS
+        if unsupported_columns:
+            raise ValueError(
+                f"unsupported update columns: {', '.join(sorted(unsupported_columns))}"
+            )
+        stored_changes = dict(changes)
+        if "tags" in stored_changes:
+            stored_changes["tags"] = json.dumps(
+                stored_changes["tags"], ensure_ascii=False
+            )
+        assignments = ", ".join(f"{column} = ?" for column in stored_changes)
+        parameters = [*stored_changes.values(), memory_id, expected_status]
+        with self._connection:
+            cursor = self._connection.execute(
+                f"UPDATE memories SET {assignments} WHERE id = ? AND status = ?",
+                parameters,
+            )
+        if cursor.rowcount != 1:
+            raise RuntimeError("Memory changed concurrently or no longer exists")
+        memory = self.get(memory_id)
+        if memory is None:
+            raise RuntimeError("Memory update succeeded but could not be read back")
+        return memory
 
     def search(
         self,
@@ -137,5 +211,7 @@ class SqliteMemoryRepository:
             scope=row["scope"], tags=json.loads(row["tags"]),
             importance=row["importance"], confidence=row["confidence"],
             created_at=row["created_at"], updated_at=row["updated_at"],
+            verified_at=row["verified_at"], deprecated_at=row["deprecated_at"],
+            verification_basis=row["verification_basis"],
+            verification_evidence=row["verification_evidence"],
         )
-

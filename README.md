@@ -3,9 +3,9 @@
 Personal AI Brain 是一套 local-first 的持久化記憶系統，讓 AI Agent 即使在新的 Session
 中沒有舊 Conversation Context，仍可主動搜尋並取回先前保存的重要資訊。
 
-目前專案完成 Milestone 1 與 Milestone 2 驗證：Codex 可以透過 MCP stdio 呼叫
-`brain_remember`、`brain_search`、`brain_read`，Memory 會持久化於本機 SQLite，且已驗證
-可跨 Codex Session 取回。
+目前專案完成 Milestone 1、Milestone 2 驗證與 Milestone 3：Codex 可以透過 MCP stdio
+呼叫 `brain_remember`、`brain_search`、`brain_read`、`brain_update`，Memory 會持久化於
+本機 SQLite，且支援 `candidate`、`verified`、`deprecated` lifecycle。
 
 詳細產品需求、Milestone 與 Non-Goals 以 [brain-spec.md](brain-spec.md) 為準；開發與
 architecture 規則請參考 [AGENTS.md](AGENTS.md)。README 只提供專案概覽與本機 setup。
@@ -96,6 +96,7 @@ codex mcp list
 - `brain_remember`
 - `brain_search`
 - `brain_read`
+- `brain_update`
 
 Codex MCP 設定方式亦可參考
 [OpenAI Model Context Protocol documentation](https://learn.chatgpt.com/zh-Hant/docs/extend/mcp)。

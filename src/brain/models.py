@@ -18,6 +18,10 @@ class Memory:
     confidence: float | None
     created_at: str
     updated_at: str
+    verified_at: str | None
+    deprecated_at: str | None
+    verification_basis: str | None
+    verification_evidence: str | None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -35,4 +39,3 @@ class SearchResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-

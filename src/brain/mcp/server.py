@@ -44,6 +44,45 @@ def brain_read(id: str) -> dict[str, Any]:
     return service.read(id).to_dict()
 
 
+@mcp.tool()
+def brain_update(
+    id: str,
+    title: str | None = None,
+    content: str | None = None,
+    summary: str | None = None,
+    type: str | None = None,
+    scope: str | None = None,
+    tags: list[str] | None = None,
+    importance: int | None = None,
+    confidence: float | None = None,
+    status: str | None = None,
+    verification_basis: str | None = None,
+    verification_evidence: str | None = None,
+) -> dict[str, Any]:
+    """Update a memory or make a validated lifecycle transition.
+
+    A transition to verified is allowed only for real evidence or explicit user
+    confirmation. Set verification_basis to "evidence" or
+    "explicit_user_confirmation" and describe that basis in
+    verification_evidence. Never verify a hypothesis or inference merely
+    because it seems likely.
+    """
+    return service.update(
+        id,
+        title=title,
+        content=content,
+        summary=summary,
+        type=type,
+        scope=scope,
+        tags=tags,
+        importance=importance,
+        confidence=confidence,
+        status=status,
+        verification_basis=verification_basis,
+        verification_evidence=verification_evidence,
+    ).to_dict()
+
+
 def main() -> None:
     mcp.run(transport="stdio")
 
