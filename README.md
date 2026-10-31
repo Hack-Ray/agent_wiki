@@ -65,4 +65,4 @@ personal-memory Skill（本 repo）
 
 ## V1
 
-V1 是本機 Python MCP server 加 SQLite FTS5 的實作，已凍結。基線為 git tag `v1-baseline`，文件在 [`docs/v1/`](docs/v1/)，程式仍在 `src/`。
+V1 是本機 Python MCP server 加 SQLite FTS5 的實作，已從 `main` 移除。完整程式在 git tag [`v1-baseline`](https://github.com/Hack-Ray/agent_wiki/tree/v1-baseline)，設計文件在 [`docs/v1/`](docs/v1/)。

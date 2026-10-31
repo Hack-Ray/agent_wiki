@@ -6,7 +6,7 @@
 
 權威規格是 [`spec.md`](spec.md)。本檔與規格衝突時以規格為準，除非使用者明確變更需求。
 
-V1（本機 Python MCP + SQLite）已凍結，基線為 git tag `v1-baseline`，V1 文件在 [`docs/v1/`](docs/v1/)。
+V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 git tag `v1-baseline`，V1 文件保留在 [`docs/v1/`](docs/v1/) 作為設計演進紀錄。
 
 ## Repository 內容
 
@@ -15,11 +15,9 @@ V1（本機 Python MCP + SQLite）已凍結，基線為 git tag `v1-baseline`，
 | `spec.md` | V2 | 權威規格 |
 | `skills/personal-memory/` | V2 | 共用的記憶 Skill，也是要發布的產物 |
 | `docs/experiments/` | V2 | 實驗計畫與結果 |
-| `docs/v1/` | V1 凍結 | V1 規格、README、AGENTS |
-| `src/`、`tests/`、`pyproject.toml` | V1 凍結 | 不再擴充，V2 驗收完成後再決定是否刪除 |
-| `skills/personal-ai-brain/`、`scripts/` | V1 凍結 | V1 Skill 與 Windows 安裝腳本 |
+| `docs/v1/` | V1 封存 | V1 規格、README、AGENTS，不再修改 |
 
-不要修改 V1 凍結的檔案，除非使用者明確要求。
+不要從 `v1-baseline` 把 V1 程式搬回 `main`，除非使用者明確要求。
 
 ## 開發原則
 
