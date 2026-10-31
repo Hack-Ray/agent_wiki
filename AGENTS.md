@@ -52,7 +52,7 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 
 ## Security
 
-不得在 repo 或 Notion 保存憑證、客戶資料、公司內部資料或專有程式碼（規格第 6 節）。公司工作的經驗即使去掉名稱，也要評估技術細節是否能還原非公開資訊，不確定就不存。
+禁止保存客戶個資與帳務識別（客戶 ID、身分證字號、統編、帳號、姓名、地址、電話、真實案件資料與金額），以及 password、API key、token、private key、connection string（規格第 6 節）。除此之外，其餘內容皆可依未來參考價值保存至 Personal Brain，包括公司內部技術資訊、business logic、architecture 與專有程式碼。混有禁止項目時先移除再保存。repo 仍不得存放私人記憶；允許保存至 Personal Brain 不代表允許公開或提交至 Git repository。
 
 ## Git Workflow
 
