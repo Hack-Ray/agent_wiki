@@ -49,7 +49,8 @@ personal-memory Skill（本 repo）
 ### 3. ChatGPT
 
 1. 在 ChatGPT 設定接上 Notion connector。
-2. 建立 Project，把 `SKILL.md` frontmatter 之後的本文貼進 Project 指令。
+2. 用 ChatGPT 的 Plugin Creator 建立私人外掛程式：「協助我建立一個外掛程式，掛上 https://github.com/Hack-Ray/agent_wiki」。建好後請它貼出外掛程式裡 `SKILL.md` 的原文，和 repo 版本比對，確認沒有被改寫。
+3. 外掛程式是 repo 的快照。repo 發布新版時，對 Plugin Creator 說「重新同步 Agent Wiki 外掛程式」，並確認版本號和 `.claude-plugin/plugin.json` 一致。
 
 ## 驗證結果（V0.1，2026-10-31）
 

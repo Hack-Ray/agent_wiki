@@ -110,7 +110,9 @@ B 寫入：成功，Claude Code 讀回確認
 | 個人偏好設定 | 設定介面沒有 Notion 工具，Claude 拒絕存入規則 |
 | 在一般對話請 Claude 把路由規則記進內建記憶 | ✅ 先查 Notion，答案正確並列出參考頁面，主動指出內建記憶的舊規劃和 Notion 衝突。「記錄下來」寫入 Notion 新頁「Personal Blog 進展紀錄 2026-10-31」，Claude Code 讀回確認 |
 
-同樣的兩句話，ChatGPT 在沒有 Project 的一般對話中就會查 Notion 並寫入。推測是先前執行 Notion 官方 setup 流程時，ChatGPT 把相關設定存進了內建記憶（未驗證）。
+ChatGPT 改用外掛程式後（Plugin Creator 從 repo 建立私人外掛「Agent Wiki」0.1.0，貼出的 `SKILL.md` 與 repo 版本 `diff` 完全相同），一般對話問「我最近部落格專案的進展如何」：查了 Personal Brain、引用兩個來源頁面、內容正確，並說明「這次沒有重新檢查 repo 或線上運作狀態」。ChatGPT 的外掛程式 Skill 在 Project 以外會被觸發，Claude 的不會。
+
+更早之前，同樣的兩句話，ChatGPT 在沒有 Project 的一般對話中就會查 Notion 並寫入。推測是先前執行 Notion 官方 setup 流程時，ChatGPT 把相關設定存進了內建記憶（未驗證）。
 
 ### 觀察
 
