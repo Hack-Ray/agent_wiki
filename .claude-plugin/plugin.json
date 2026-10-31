@@ -9,5 +9,11 @@
   },
   "homepage": "https://github.com/Hack-Ray/agent_wiki",
   "repository": "https://github.com/Hack-Ray/agent_wiki",
-  "keywords": ["memory", "notion", "personal-knowledge", "skills"]
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "notion",
+    "personal-knowledge",
+    "skills"
+  ]
 }
