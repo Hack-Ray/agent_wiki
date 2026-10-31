@@ -27,8 +27,19 @@ personal-memory Skill（本 repo）
 ### 2. Claude（claude.ai、手機 App、Claude Code）
 
 1. 在 claude.ai 的「設定 → 連接器」接上由 Notion 發布的官方 **Notion** connector。不要另外安裝社群版 Notion 外掛。Claude Code 會自動同步 claude.ai 的 connector。
-2. 把 `skills/personal-memory/` 壓成 zip，到「設定 → 自訂 → Skills」上傳並啟用。
-3. 在一般對話中請 Claude 把路由規則記進內建記憶。實驗中只上傳 Skill 時，Project 以外的對話不會觸發它；記進內建記憶後才會主動查 Notion。
+2. 安裝本 repo 的 `personal-memory` 外掛程式。本外掛只包含 Skill，不包含任何 connector 或 MCP server。
+
+   ```text
+   /plugin install personal-memory --marketplace Hack-Ray/agent_wiki
+   ```
+
+   之後更新：
+
+   ```text
+   /plugin update personal-memory
+   ```
+
+3. 在一般對話中請 Claude 把路由規則記進內建記憶。實驗中只安裝 Skill 時，Project 以外的對話不會觸發它；記進內建記憶後才會主動查 Notion。
 
    ```text
    請把這條規則記住，以後所有對話都適用：

@@ -1,0 +1,13 @@
+{
+  "name": "personal-memory",
+  "displayName": "Personal Memory",
+  "version": "0.1.0",
+  "description": "讓 Claude 把使用者 Notion 的「Personal Brain Lab」當成個人記憶的正式來源：關於使用者的問題先查、引用附頁面連結、區分過去觀點與目前結論、「記下來」時寫回 Notion。需要先接官方 Notion connector。",
+  "author": {
+    "name": "Hack-Ray",
+    "url": "https://github.com/Hack-Ray"
+  },
+  "homepage": "https://github.com/Hack-Ray/agent_wiki",
+  "repository": "https://github.com/Hack-Ray/agent_wiki",
+  "keywords": ["memory", "notion", "personal-knowledge", "skills"]
+}

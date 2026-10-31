@@ -14,6 +14,7 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 |---|---|---|
 | `spec.md` | V2 | 權威規格 |
 | `skills/personal-memory/` | V2 | 共用的記憶 Skill，也是要發布的產物 |
+| `.claude-plugin/` | V2 | 外掛程式與 marketplace 設定檔 |
 | `docs/experiments/` | V2 | 實驗計畫與結果 |
 | `docs/v1/` | V1 封存 | V1 規格、README、AGENTS，不再修改 |
 
@@ -33,7 +34,8 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 - 不寫特定工具名稱或固定呼叫順序。本文要能直接貼進任何平台的指令欄位。
 - `description` 決定 Skill 是否被觸發，涵蓋的問法要和本文的「何時查」一致。
 - 每條規則應對應一個實際觀察到的問題。修改後在 `docs/experiments/` 記錄是哪次結果促成這次修改。
-- 修改後，提醒使用者重新上傳 Skill 並更新各平台的 Project 指令。
+- 本 repo 同時是 Claude 外掛程式（`.claude-plugin/plugin.json`）與它的 marketplace（`.claude-plugin/marketplace.json`）。修改 Skill 後，兩個檔案的 `version` 要一起升版，並執行 `claude plugin validate .`。不升版，已安裝的人不會收到更新。
+- 修改後，提醒使用者更新 ChatGPT 與 claude.ai Project 的指令。這兩處無法透過外掛程式更新。
 
 ## 實驗紀錄
 

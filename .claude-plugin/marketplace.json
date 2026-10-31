@@ -1,0 +1,16 @@
+{
+  "name": "hack-ray",
+  "owner": {
+    "name": "Hack-Ray",
+    "url": "https://github.com/Hack-Ray"
+  },
+  "description": "Hack-Ray 的 Claude 外掛程式。",
+  "plugins": [
+    {
+      "name": "personal-memory",
+      "source": "./",
+      "description": "以 Notion「Personal Brain Lab」作為跨 AI 個人記憶的行為規則。需要先接官方 Notion connector。",
+      "version": "0.1.0"
+    }
+  ]
+}
