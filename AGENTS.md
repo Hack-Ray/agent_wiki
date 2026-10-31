@@ -60,6 +60,7 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 
 - 執行 `git status`，了解既有的未提交變更。
 - 不要覆蓋或還原與當前任務無關的使用者變更。
+- 開始開發前先建立工作分支，預設使用 `codex/` 前綴，不直接在 `main` 修改。
 
 開發中：
 
@@ -70,6 +71,7 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 
 - 執行 `git status`，檢查最終 `git diff`。
 - 回報所有新增、修改、刪除的檔案，並建議 commit message。
+- 變更透過工作分支 commit、push 並開 PR，檢查完成後再合併至 `main`，不直接 push 至 `main`；commit、push 與合併仍須有使用者授權。
 
 除非使用者明確要求，不要執行：
 
