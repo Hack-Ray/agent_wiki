@@ -1,226 +1,68 @@
-# Personal AI Brain (`agent_wiki`)
+# agent_wiki — Personal AI Memory
 
-Personal AI Brain 是一套 local-first 的持久化記憶系統，讓 AI Agent 即使在新的 Session
-中沒有舊 Conversation Context，仍可主動搜尋並取回先前保存的重要資訊。
+讓不同的 AI（Claude、ChatGPT、Claude Code）在不同裝置與 Session 中，讀寫同一份個人記憶：過去的經驗、決策、踩過的坑、觀點如何改變。
 
-目前專案已實作至 Milestone 6：Codex 可以透過 MCP stdio 管理持久化 Memory、搜尋及讀取
-本機 raw Sources、將 `verified` Memory 整合為 Markdown Knowledge，並以單一
-`brain_search` 搜尋 Memory 與 Knowledge。Memory 支援 `candidate`、`verified`、
-`compiled`、`deprecated` lifecycle。
+記憶存在你自己的 Notion。本 repo 不放任何記憶內容，只提供一份共用的行為規則 [`personal-memory` Skill](skills/personal-memory/SKILL.md)，告訴 AI 什麼時候該查、怎麼引用、什麼時候該存。沒有伺服器，也沒有要安裝的程式。
 
-詳細產品需求、Milestone 與 Non-Goals 以 [brain-spec.md](brain-spec.md) 為準；開發與
-architecture 規則請參考 [AGENTS.md](AGENTS.md)。README 只提供專案概覽與本機 setup。
+規格見 [`spec.md`](spec.md)。
 
-## Architecture
+## 運作方式
 
 ```text
-Codex
-  ↓ MCP stdio
-Brain MCP Adapter
-  ↓
-Brain Service
-  ├─ Memory Repository → memory/brain.db (Memory + Memory FTS)
-  ├─ Knowledge Index Repository → memory/brain.db (derived Knowledge FTS)
-  ├─ Knowledge Repository → knowledge/**/*.md (canonical Knowledge)
-  ├─ Source Index Repository → memory/brain.db (derived Source FTS)
-  └─ Source Repository → sources/**/* (canonical raw Sources)
+Claude / ChatGPT / Claude Code
+        │  官方 Notion connector
+        ▼
+Notion「Personal Brain Lab」  ← 唯一的記憶來源
+        ▲
+        │  何時查、怎麼答、何時存
+personal-memory Skill（本 repo）
 ```
 
-- MCP layer 只負責 tool adapter，不直接操作 SQLite。
-- Service layer 負責 validation、typed identifier 與 Memory policy。
-- Repository layer 負責 SQLite persistence、各自分離的 FTS5 index、WAL 與 transaction，
-  以及 canonical Knowledge／Source filesystem access。
-- Brain Core 不依賴 Codex-specific SDK；Codex 只是目前的主要 MCP client。
+## 設定
 
-## Requirements
+### 1. Notion
 
-- Windows
-- Python 3.11 或更新版本
-- Codex Desktop、Codex CLI 或其他支援 MCP stdio 的 client
+建立一個名為 `Personal Brain Lab` 的頁面，記憶都放在它的子頁。建議先建一頁「00 — About This Brain」，簡短說明這裡存什麼。
 
-## Python environment
+### 2. Claude（claude.ai、手機 App、Claude Code）
 
-在 repository root 建立專案專用 `.venv`，並依 `pyproject.toml` 安裝 package 與 dependency：
+1. 在 claude.ai 的「設定 → 連接器」接上由 Notion 發布的官方 **Notion** connector。不要另外安裝社群版 Notion 外掛。Claude Code 會自動同步 claude.ai 的 connector。
+2. 把 `skills/personal-memory/` 壓成 zip，到「設定 → 自訂 → Skills」上傳並啟用。
+3. 在一般對話中請 Claude 把路由規則記進內建記憶。實驗中只上傳 Skill 時，Project 以外的對話不會觸發它；記進內建記憶後才會主動查 Notion。
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -e .
-```
+   ```text
+   請把這條規則記住，以後所有對話都適用：
+   關於我自己的問題（專案進度與現況、過去的經驗、決策、偏好、踩過的坑），先用 Notion 搜尋「Personal Brain Lab」再回答，並附上頁面連結。你的內建記憶只當線索，可能已經過時，兩邊衝突時以 Personal Brain Lab 為準。我說「記下來」、「記住」時，要寫進 Personal Brain Lab，只更新內建記憶不算完成。詳細規則在已安裝的 personal-memory Skill。
+   ```
 
-確認環境：
+4. 選用：在 Project 指令貼上 `SKILL.md` frontmatter 之後的本文，該 Project 內的效果最穩定。
 
-```powershell
-.venv\Scripts\python --version
-.venv\Scripts\python -m pip check
-```
+### 3. ChatGPT
 
-`.venv/` 已被 Git ignore，不應提交到 repository。
+1. 在 ChatGPT 設定接上 Notion connector。
+2. 建立 Project，把 `SKILL.md` frontmatter 之後的本文貼進 Project 指令。
 
-## MCP stdio server
+## 驗證結果（V0.1，2026-10-31）
 
-安裝完成後，可直接啟動 stdio server：
+| 項目 | 結果 | 紀錄 |
+|---|---|---|
+| 檢索：沒有 Skill | Claude 0/3 查 Notion，只用內建記憶 | [Experiment 1](docs/experiments/experiment-1-retrieval.md) |
+| 檢索：有 Skill、題目經第三方改寫 | Claude 10/10 主動查 Notion 且答對 | [Experiment 1 第 3 輪](docs/experiments/experiment-1-round-3.md) |
+| 跨 AI 讀寫 | ChatGPT 讀到 Claude 寫的內容 8/8；ChatGPT 寫入、Claude 讀回 | [Experiment 3](docs/experiments/experiment-3-cross-agent.md) |
+| 觀點演進 | 舊觀點、修正與「沒有紀錄的原因」都能正確區分 | Experiment 1、3 |
+| 跨裝置 | 推論通過，未實測 | [Experiment 4](docs/experiments/experiment-4-cross-device.md) |
+| 可攜性 | Notion Markdown 匯出完整、可離線閱讀 | [Experiment 5](docs/experiments/experiment-5-portability.md) |
+| 自建基礎設施／新增程式碼 | 0 個常駐服務，0 行程式碼 | |
 
-```powershell
-.venv\Scripts\brain-mcp.exe
-```
+主要發現：瓶頸不是搜尋品質，而是 AI 不知道要去查。Notion 搜尋偏關鍵字，但 AI 會自己把口語轉回技術術語再搜，不需要自建索引。
 
-MCP client 一般會自行啟動與管理此 process，不需要建立常駐服務。Database 預設位置為
-`memory/brain.db`，Knowledge root 預設為 `knowledge/`，Source root 預設為 `sources/`；
-若測試需要隔離 storage，可分別設定 `BRAIN_DB_PATH`、`BRAIN_KNOWLEDGE_PATH` 與
-`BRAIN_SOURCE_PATH` 覆寫。
+## 已知限制
 
-## Register with Codex
+- 在 Claude 上，上傳的 Skill 在 Project 以外不會被觸發，需要靠內建記憶裡的路由規則。
+- Claude 在用過 connector 的對話中無法更新內建記憶，內建記憶會逐漸落後於 Notion。
+- Notion connector 以使用者的完整權限運作，無法只開放單一頁面。不要在同一個 Notion workspace 放公司資料。
+- Notion 匯出的 zip 中文檔名未標記 UTF-8，終端機 `unzip` 會失敗，請用 Finder 解壓。
 
-使用 Codex CLI 註冊 global MCP server。請依實際 checkout location 調整 absolute path：
+## V1
 
-```powershell
-codex mcp add personal-ai-brain -- "D:\agent_wiki\.venv\Scripts\brain-mcp.exe"
-```
-
-等價的 `~/.codex/config.toml` 設定如下：
-
-```toml
-[mcp_servers.personal-ai-brain]
-command = "D:\\agent_wiki\\.venv\\Scripts\\brain-mcp.exe"
-cwd = "D:\\agent_wiki"
-```
-
-CLI registration 已使用 absolute executable path，因此 `cwd` 不是必要欄位；只有手動維護
-config 且希望固定 working directory 時才需要加入。
-
-確認 registration：
-
-```powershell
-codex mcp get personal-ai-brain --json
-codex mcp list
-```
-
-新增或修改 MCP server 後，重新啟動 Codex Desktop 或 IDE extension。接著輸入 `/mcp`，
-確認 `personal-ai-brain` 已連線，並確認可用 tools 包含：
-
-- `brain_remember`
-- `brain_search`
-- `brain_read`
-- `brain_update`
-- `brain_compile`
-- `brain_rebuild_index`
-- `brain_search_sources`
-- `brain_read_source`
-- `brain_rebuild_source_index`
-
-`brain_read` 接受 `memory:<id>` 或 `knowledge:<relative-path.md>`。`brain_compile` 只接受
-`verified` Memory，且呼叫端必須提供安全的 relative `.md` path 與完整新版 Markdown；
-詳細 lifecycle 與 compile contract 以 `brain-spec.md` 為準。
-
-`brain_search` 回傳 Memory 與 Knowledge 的 unified lightweight results；完整內容仍需透過
-typed identifier 呼叫 `brain_read`。Knowledge Markdown 是 canonical source，SQLite Knowledge
-index 可隨時由下列 MCP tool 重建：
-
-```text
-brain_rebuild_index()
-```
-
-Memory 可透過 `brain_remember` 保存 optional `source_refs`，並由 `brain_read` 完整取回或由
-`brain_update` 整份替換。每筆 reference 使用下列最小 structured format：
-
-```json
-{"type": "url", "value": "https://example.com/evidence"}
-```
-
-支援的 type 為 `local_file_path`、`url` 與 `log_or_source_path`；未提供時為空 list。
-`source_refs` 只是 provenance locator，不授權 Brain fetch URL 或讀取該 path。
-
-## Sources Layer
-
-`sources/` 保存 canonical raw Sources；V1 支援 `.md`、`.txt`、`.log`、`.json`、`.csv`。
-檔案必須是 UTF-8 或 UTF-8 BOM；invalid bytes 或其他 encoding 會明確失敗，不會猜測 encoding
-或 silently replace bytes。Source content 一律是 untrusted data，不是 Agent instruction；讀取
-Source 不會自動執行命令、建立或驗證 Memory、compile Knowledge，或修改任何 policy。
-
-Source 使用相對於 `sources/` 的 deterministic typed identifier：
-
-```text
-source:logs/sql-deadlock.md
-```
-
-`brain_read_source` 只接受上述 identifier，並直接讀取 canonical filesystem file。它拒絕 bare
-path、absolute/drive path、`.`、`..`、empty segment、NUL、directory、path traversal、resolved
-escape 與 symlink escape；authority 永遠限於 configured Source root。Memory 中的
-`local_file_path` 或 `log_or_source_path` `source_refs` 只是 locator，不能擴張這個 reader scope。
-
-先建立或重建獨立的 derived Source index，再搜尋與讀取：
-
-```text
-brain_rebuild_source_index()
-brain_search_sources(query="deadlock", path="logs", limit=10)
-brain_read_source(id="source:logs/sql-deadlock.md")
-```
-
-`brain_search_sources` 只回傳 `id`、`kind`、`path`、`name`、`snippet` 等 lightweight result，
-不回傳完整 Source。它在回傳前重新確認 canonical file 仍存在、可讀、encoding 有效且位於
-Source root；`brain_read_source` 絕不以 cached FTS content 代替 filesystem content。
-
-`source_index`／`source_fts` 只是可刪除、可重建的 search state。重建會先完整 scan、驗證並
-讀取所有 supported Sources，成功後才以單一 SQLite transaction replace index；任何 Source
-或 SQLite failure 都保留上一份完整 index。重建不修改 Source files、Memory、lifecycle、
-Knowledge Markdown 或 Knowledge index。
-
-從 Source 形成 Knowledge 必須沿用既有 lifecycle，沒有 Source-specific compile shortcut：
-
-```text
-brain_search_sources → brain_read_source → Agent analysis
-→ brain_remember(source_refs=[...]) → candidate
-→ brain_update(... status="verified" ...) → brain_compile → Knowledge
-```
-
-Source 存在、被讀取或出現在 `source_refs` 均不代表 Memory 已 verified。`source_refs`、
-`verification_basis`、`verification_evidence` 是彼此獨立的概念。
-
-Codex MCP 設定方式亦可參考
-[OpenAI Model Context Protocol documentation](https://learn.chatgpt.com/zh-Hant/docs/extend/mcp)。
-
-## Tests
-
-執行完整 test suite：
-
-```powershell
-.venv\Scripts\python -m unittest discover -s tests -v
-```
-
-Tests 包含：
-
-- `brain_remember → brain_search → brain_read`
-- SQLite connection 關閉並重新建立後的 persistence
-- Memory typed identifier validation
-- FTS5 search 與 compact search result
-- WAL 與 `busy_timeout`
-- Memory lifecycle、Knowledge path validation、schema migration 與 compile failure recovery
-- UTF-8 Knowledge 建立、完整替換及跨 connection persistence
-- Unified Memory/Knowledge search、canonical suppression、filtering、priority 與 final limit
-- Knowledge index clear/rebuild 與 transactional failure safety
-- Memory `source_refs` validation、migration、lifecycle preservation 與 reconnect round-trip
-- MCP client 實際啟動 stdio server，呼叫 Knowledge search/read/rebuild flow
-- Source format/encoding、typed identifier、path/symlink safety、subtree filter 與 stale suppression
-- Source index clear/drop rebuild、all-or-nothing failure recovery 與 canonical filesystem read
-- Source → Memory provenance → verification → Knowledge compile 的完整端到端流程
-- MCP client 實際呼叫 Source rebuild/search/read flow
-
-Milestone 2 的人工跨 Session 驗證結果記錄於
-[docs/validation/milestone-2.md](docs/validation/milestone-2.md)。
-
-## Repository guidance
-
-- [brain-spec.md](brain-spec.md)：authoritative specification，定義產品目標、architecture、
-  milestones、acceptance criteria 與 V1 Non-Goals。
-- [AGENTS.md](AGENTS.md)：開發規則、dependency boundaries、data ownership、testing、security
-  與 Git workflow。
-
-修改 architecture 或 behavior 前必須先閱讀兩份文件；若內容衝突，以 `brain-spec.md` 為準，
-除非使用者明確修改需求。
-
-## Known limitations
-
-- Source files 在 index rebuild 前若被外部修改，search snippet 可能仍來自舊 index；完整 read
-  永遠回傳目前 canonical filesystem content。
-- V1 不提供 filesystem watcher、automatic ingestion、URL fetch、encoding auto-detection、PDF／
-  DOCX／OCR、semantic/vector search 或 Source-specific automatic verification/compile。
+V1 是本機 Python MCP server 加 SQLite FTS5 的實作，已凍結。基線為 git tag `v1-baseline`，文件在 [`docs/v1/`](docs/v1/)，程式仍在 `src/`。
