@@ -37,12 +37,14 @@ personal-memory Skill（本 repo）
 
    之後 repo 發布新版時，在外掛程式頁面或用 `/plugin update personal-memory` 更新。
 
-3. 在一般對話中請 Claude 把路由規則記進內建記憶。實驗中只安裝 Skill 時，Project 以外的對話不會觸發它；記進內建記憶後才會主動查 Notion。
+3. 讓 Claude 在一般對話中主動載入 Skill。claude.ai 不會自己觸發外掛程式的 Skill，要靠內建記憶提醒它。開一個**還沒用過 Notion 的**新對話（用過 connector 的對話無法寫入內建記憶），輸入 `/personal-memory` 載入 Skill，再送出：
 
    ```text
    請把這條規則記住，以後所有對話都適用：
-   關於我自己的問題（專案進度與現況、過去的經驗、決策、偏好、踩過的坑），先用 Notion 搜尋「Personal Brain Lab」再回答，並附上頁面連結。你的內建記憶只當線索，可能已經過時，兩邊衝突時以 Personal Brain Lab 為準。我說「記下來」、「記住」時，要寫進 Personal Brain Lab，只更新內建記憶不算完成。詳細規則在已安裝的 personal-memory Skill。
+   處理和我自己有關的事（專案進度與現況、過去的經驗、決策、偏好、踩過的坑），以及我要你記下來、更新記憶時，先載入最新版的 personal-memory skill，照它的規則查詢與寫入 Notion 的 Personal Brain Lab。我的 skill 還在迭代，每次都要重新載入，不要沿用舊版本。
    ```
+
+   之後在新對話直接問和自己有關的問題，回覆過程應出現「已載入技能 personal-memory」。
 
 
 ### 3. ChatGPT

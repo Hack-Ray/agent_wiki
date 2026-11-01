@@ -49,3 +49,17 @@
 使用者隨後在同一對話要求寫進 Notion。Claude 寫入成功，但建立在 Personal Brain Lab 以外的私人草稿，並請使用者指定位置。原因推測：Notion connector 的說明要求「使用者沒指定位置時建立私人草稿」，而 Skill 未被觸發，路由規則也沒說要放在哪一頁。實際上 Personal Brain 已有「VM Sandbox：測試環境演進與踩坑」，其中列為讀碼推論的「長 job 阻塞 Runner 主迴圈」正是這次發生的問題。Claude Code 將草稿內容以追加段落合併進該頁並讀回確認。
 
 修改：核心規則與 `capture.md` 明定不建立私人草稿或 Personal Brain 以外的頁面，沒指定位置時自行找最相關的既有頁面更新。
+
+## 追加：claude.ai 一般對話如何載入 Skill
+
+2026-11-01 在 claude.ai 一般對話的觀察：
+
+| 嘗試 | 結果 |
+|---|---|
+| 只安裝外掛程式 | Skill 從未被觸發。「之前的討論」這類問法改用內建的過去對話搜尋，找到已刪除頁面的舊網址，未查 Personal Brain |
+| 內建記憶裡存「去 Notion 查」的路由規則 | 會查 Notion，但不讀 Skill；只搜一次就停，漏掉總覽頁上的 PR #127 內容 |
+| 使用者以 `/personal-memory` 手動載入，並請 Claude 記住「處理和我有關的事前先載入最新版 personal-memory skill」 | ✅ 新對話中自動出現「已載入技能 personal-memory」，從專案總覽頁開始查，找到 PR #127、`cms-v1.2.0` 與待確認事項 |
+
+結論：claude.ai 可以讀取 Skill，問題是 Claude 不會主動想到要讀。內建記憶每次對話都會載入，適合負責「先讀 Skill」這一步；Skill 負責怎麼查、怎麼存。Skill 改版後不需要更新記憶裡的規則。README 的 Claude 設定步驟改用這個做法。
+
+同一次測試中，Claude 仍說頁面日期是 UTC。「日期用台灣時間」只寫在 `page-format.md`（寫入時才讀），查詢時讀的 `retrieve.md` 沒有。0.2.2 在 `retrieve.md` 補上日期解讀規則。
