@@ -29,13 +29,15 @@ V1（本機 Python MCP + SQLite）已從 `main` 移除。完整程式保存在 g
 
 ## 修改 Skill
 
-`skills/personal-memory/SKILL.md` 同時用於三個地方：Skill 上傳、claude.ai Project 指令、ChatGPT Project 指令。
+`skills/personal-memory/` 透過外掛程式發布到 Claude 與 ChatGPT，採漸進式載入：
 
-- 不寫特定工具名稱或固定呼叫順序。本文要能直接貼進任何平台的指令欄位。
-- `description` 決定 Skill 是否被觸發，涵蓋的問法要和本文的「何時查」一致。
+- `SKILL.md` 只放摘要、路由表與所有情境都適用的核心規則。情境細節放 `references/`（`retrieve.md`、`capture.md`、`update.md`、`page-format.md`），由路由表指示何時讀取。
+- 違反後果嚴重的規則（先查 Personal Brain、不補造、沒讀回不宣稱已保存、禁止保存項目、大量刪除先問）同時寫在 `SKILL.md` 核心規則與對應的參考檔，避免沒讀參考檔時遺漏。其他規則只寫在一處。
+- 不寫特定工具名稱或固定呼叫順序。
+- `description` 決定 Skill 是否被觸發，涵蓋的問法要和 `retrieve.md` 的使用情境一致。
 - 每條規則應對應一個實際觀察到的問題。修改後在 `docs/experiments/` 記錄是哪次結果促成這次修改。
 - 本 repo 同時是 Claude 外掛程式（`.claude-plugin/plugin.json`）與它的 marketplace（`.claude-plugin/marketplace.json`）。修改 Skill 後，兩個檔案的 `version` 要一起升版，並執行 `claude plugin validate .`。不升版，已安裝的人不會收到更新。
-- 修改後，提醒使用者更新 ChatGPT 與 claude.ai Project 的指令。這兩處無法透過外掛程式更新。
+- 修改後，提醒使用者在 claude.ai 同步市集並更新外掛程式，在 ChatGPT 請 Plugin Creator 重新同步，並確認同步後的外掛程式包含 `references/` 下所有檔案。
 
 ## 實驗紀錄
 
