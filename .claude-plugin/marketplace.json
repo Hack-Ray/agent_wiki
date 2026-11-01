@@ -10,7 +10,7 @@
       "name": "personal-memory",
       "source": "./",
       "description": "以 Notion「Personal Brain Lab」作為跨 AI 個人記憶的行為規則。需要先接官方 Notion connector。",
-      "version": "0.2.1"
+      "version": "0.2.2"
     }
   ]
 }
