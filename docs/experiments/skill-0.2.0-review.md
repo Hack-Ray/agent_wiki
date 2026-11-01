@@ -39,3 +39,13 @@
 
 - Claude 與 ChatGPT 是否會依路由表讀取參考檔，尤其保存時是否讀 `capture.md` 並照做讀回確認。
 - ChatGPT Plugin Creator 重新同步時，快照是否包含 `references/`。
+
+## 追加：「更新回記憶」被當成內建記憶
+
+2026-11-01，使用者在 claude.ai 一般對話討論 VM Sandbox 的 runner timeout 問題後說「先更新回記憶吧」。Claude 嘗試寫入內建記憶的「VM Sandbox」檔案，因對話用過 Notion connector 而被系統擋下。失敗後它提議開新對話重寫內建記憶或存成本機檔案，沒有寫進 Personal Brain。當時 claude.ai 上的 Skill 仍是 0.1.x，回覆中也沒有提到 Personal Brain，Skill 可能未被觸發（推測）。
+
+修改：觸發詞加入「更新記憶」、「存到記憶」，並規定「記憶」一律指 Personal Brain；內建記憶寫入失敗時照常寫進 Personal Brain，不改提議其他替代方案。claude.ai 內建記憶裡的路由規則也需同步更新為包含這些說法。
+
+使用者隨後在同一對話要求寫進 Notion。Claude 寫入成功，但建立在 Personal Brain Lab 以外的私人草稿，並請使用者指定位置。原因推測：Notion connector 的說明要求「使用者沒指定位置時建立私人草稿」，而 Skill 未被觸發，路由規則也沒說要放在哪一頁。實際上 Personal Brain 已有「VM Sandbox：測試環境演進與踩坑」，其中列為讀碼推論的「長 job 阻塞 Runner 主迴圈」正是這次發生的問題。Claude Code 將草稿內容以追加段落合併進該頁並讀回確認。
+
+修改：核心規則與 `capture.md` 明定不建立私人草稿或 Personal Brain 以外的頁面，沒指定位置時自行找最相關的既有頁面更新。
