@@ -44,12 +44,11 @@ personal-memory Skill（本 repo）
    關於我自己的問題（專案進度與現況、過去的經驗、決策、偏好、踩過的坑），先用 Notion 搜尋「Personal Brain Lab」再回答，並附上頁面連結。你的內建記憶只當線索，可能已經過時，兩邊衝突時以 Personal Brain Lab 為準。我說「記下來」、「記住」時，要寫進 Personal Brain Lab，只更新內建記憶不算完成。詳細規則在已安裝的 personal-memory Skill。
    ```
 
-4. 選用：在 Project 指令貼上 `SKILL.md` frontmatter 之後的本文，該 Project 內的效果最穩定。
 
 ### 3. ChatGPT
 
 1. 在 ChatGPT 設定接上 Notion connector。
-2. 用 ChatGPT 的 Plugin Creator 建立私人外掛程式：「協助我建立一個外掛程式，掛上 https://github.com/Hack-Ray/agent_wiki」。建好後請它貼出外掛程式裡 `SKILL.md` 的原文，和 repo 版本比對，確認沒有被改寫。
+2. 用 ChatGPT 的 Plugin Creator 建立私人外掛程式：「協助我建立一個外掛程式，掛上 https://github.com/Hack-Ray/agent_wiki」。建好後請它列出外掛程式裡的所有檔案並貼出原文，確認 `SKILL.md` 與 `references/` 下的檔案都在，且和 repo 版本一致、沒有被改寫。
 3. 外掛程式是 repo 的快照。repo 發布新版時，對 Plugin Creator 說「重新同步 Agent Wiki 外掛程式」，並確認版本號和 `.claude-plugin/plugin.json` 一致。
 
 ## 驗證結果（V0.1，2026-10-31）
