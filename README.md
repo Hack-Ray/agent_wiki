@@ -51,6 +51,8 @@ personal-memory Skill（本 repo，以外掛程式發布）
    只要對話涉及我自己的事，包括我問你我的專案、經驗、決策，也包括我告訴你專案進度、做了什麼調整、遇到什麼問題，或要你記下來、更新記憶，第一步都要先載入最新版的 personal-memory skill，再照它的規則查詢與寫入 Notion 的 Personal Brain Lab。不要先寫進你的內建記憶就當作處理完了。我的 skill 還在迭代，每次都要重新載入，不要沿用舊版本。
    ```
 
+   這段是較早的寫法。V2.1 起各平台共用一段 [Bootstrap Rule](docs/bootstrap-rule.md)，也可以改貼到 claude.ai 的「個人偏好」。兩處擇一，內容保持一致。
+
 4. **確認。** 開新對話問一個和自己有關的問題，回覆過程應出現「已載入技能 personal-memory」，回答附上 Notion 頁面連結。
 
 ### 步驟 3：設定 ChatGPT
@@ -124,7 +126,9 @@ Claude 記憶裡那條「先載入最新版 Skill」的規則不需要跟著改�
 | [`spec.md`](spec.md) | 權威規格 |
 | [`skills/personal-memory/`](skills/personal-memory/) | 記憶 Skill：`SKILL.md` 放核心規則與路由，`references/` 放查詢、保存、更新、頁面格式的細節 |
 | [`.claude-plugin/`](.claude-plugin/) | 外掛程式與 marketplace 設定 |
-| [`docs/experiments/`](docs/experiments/) | 實驗計畫與結果 |
+| [`docs/roadmap-v2.1.md`](docs/roadmap-v2.1.md) | V2.1 → V2.3 路線圖 |
+| [`docs/bootstrap-rule.md`](docs/bootstrap-rule.md) | 各平台常駐的觸發規則 |
+| [`docs/experiments/`](docs/experiments/) | 實驗計畫與結果，含 [V2.1 回歸測試集](docs/experiments/benchmark-v2.1.md) |
 | [`docs/v1/`](docs/v1/) | V1 設計文件（封存） |
 | [`AGENTS.md`](AGENTS.md) | 給 AI 的開發規則 |
 
