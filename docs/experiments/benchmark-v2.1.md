@@ -6,6 +6,8 @@
 
 對應 [V2.1 驗收門檻](../roadmap-v2.1.md#v21-驗收門檻)。
 
+執行紀錄：[第 1 輪（Claude Code 子代理，0.2.2 基準）](benchmark-v2.1-run-1.md)
+
 ## 注意
 
 - **本檔含判讀重點，受測 Agent 不能讀到。** 不要在本 repo 的 Claude Code 中受測；只把「題目」欄的文字貼給受測 Agent。
