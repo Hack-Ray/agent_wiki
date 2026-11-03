@@ -6,7 +6,7 @@
 
 對應 [V2.1 驗收門檻](../roadmap-v2.1.md#v21-驗收門檻)。
 
-執行紀錄：[第 1 輪（Claude Code 子代理，0.2.2 基準）](benchmark-v2.1-run-1.md)
+執行紀錄：[第 1 輪（Claude Code 子代理，0.2.2 基準）](benchmark-v2.1-run-1.md)、[第 2 輪（Claude Code 子代理，0.3.0）](benchmark-v2.1-run-2.md)
 
 ## 注意
 
