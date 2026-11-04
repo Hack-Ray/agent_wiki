@@ -41,7 +41,8 @@ personal-memory Skill（本 repo，以外掛程式發布）
    - Claude Code：
 
      ```text
-     /plugin install personal-memory --marketplace Hack-Ray/agent_wiki
+     /plugin marketplace add Hack-Ray/agent_wiki
+     /plugin install personal-memory@hack-ray
      ```
 
 3. **讓 Claude 記得先載入 Skill。** claude.ai 不會自己觸發外掛程式的 Skill，要靠內建記憶提醒它。開一個**還沒用過 Notion 的**新對話（用過 connector 的對話無法寫入內建記憶），輸入 `/personal-memory` 載入 Skill，再送出：
@@ -81,8 +82,16 @@ ChatGPT 的外掛程式在一般對話中會自己觸發，不需要額外設定
 本 repo 發布新版時（`.claude-plugin/plugin.json` 的 `version` 改變）：
 
 - **claude.ai**：「設定 → 外掛程式 → 新增 → 管理市集」，在 `agent_wiki` 按 `…` 同步，再更新外掛程式。
-- **Claude Code**：`/plugin update personal-memory`，重新啟動後生效。
+- **Claude 桌面版與手機 App**：外掛程式跟著 claude.ai 帳號同步，不必另外安裝。先在網頁版完成上一步，再把桌面版完全結束（macOS 按 `Cmd+Q`，Windows 從系統匣結束）後重開，手機 App 則關掉重開。只關視窗不會重新同步。
+- **Claude Code**（含桌面版的 Code 分頁）：先更新市集再更新外掛程式，重新啟動後生效。只跑 `/plugin update` 不會重新抓 repo，會一直停在舊版。
+
+  ```text
+  /plugin marketplace update hack-ray
+  /plugin update personal-memory@hack-ray
+  ```
 - **ChatGPT**：對 Plugin Creator 說「重新同步 Agent Wiki 外掛程式」，確認版本號與 `references/` 檔案都已更新。
+
+**確認拿到新版：** 開新對話輸入 `/personal-memory`，再問「列出你剛載入的 personal-memory SKILL.md 的所有 `##` 標題」。0.3.0 的第一個標題是「先判斷要不要查」，沒有這一節就還是舊版。
 
 Claude 記憶裡那條「先載入最新版 Skill」的規則不需要跟著改。
 
